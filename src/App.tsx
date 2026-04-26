@@ -82,11 +82,11 @@ function App() {
         setKeys((current) => ({ ...current, right: true }));
       }
       if (key === ' ' || key === 'enter') {
-        if (mode === 'playing' && !paused) {
+        if (mode === 'playing' && !paused && countdown === null) {
           setDashNonce((value) => value + 1);
         }
       }
-      if (key === 'escape' && mode === 'playing') {
+      if (key === 'escape' && mode === 'playing' && countdown === null) {
         setPaused((value) => !value);
       }
     };
@@ -114,7 +114,7 @@ function App() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [mode, paused]);
+  }, [countdown, mode, paused]);
 
   useEffect(() => {
     if (tagBurst === 0) {
@@ -205,6 +205,7 @@ function App() {
   const worldMoveInput = screenInputToWorld(moveInput);
 
   const startRound = () => {
+    requestImmersiveMode();
     playRoundStart();
     setScore(0);
     setStreak(0);
@@ -340,6 +341,24 @@ function RotateGate() {
       </div>
     </div>
   );
+}
+
+function requestImmersiveMode() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const root = document.documentElement;
+  if (!document.fullscreenElement && root.requestFullscreen) {
+    root.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+  }
+  const orientation = (
+    globalThis.screen as Screen & {
+      orientation?: { lock?: (orientation: string) => Promise<void> };
+    }
+  ).orientation;
+  if (orientation?.lock) {
+    orientation.lock('landscape').catch(() => {});
+  }
 }
 
 function isPortraitMobile() {

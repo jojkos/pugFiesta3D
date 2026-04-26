@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 type ToneShape = {
   frequency: number;
@@ -422,13 +422,25 @@ export function useArcadeAudio(muted: boolean) {
     [],
   );
 
-  return {
-    playDash: () => guard(playDash),
-    playTag: () => guard(playTag),
-    playRoundStart: () => guard(playRoundStart),
-    playRoundEnd: () => guard(playRoundEnd),
-    playCountdownTick: () => guard(playCountdownTick),
-    playStreakPing: (level: number) => guard(() => playStreakPing(level)),
-    setRoundLoopActive,
-  };
+  return useMemo(
+    () => ({
+      playDash: () => guard(playDash),
+      playTag: () => guard(playTag),
+      playRoundStart: () => guard(playRoundStart),
+      playRoundEnd: () => guard(playRoundEnd),
+      playCountdownTick: () => guard(playCountdownTick),
+      playStreakPing: (level: number) => guard(() => playStreakPing(level)),
+      setRoundLoopActive,
+    }),
+    [
+      guard,
+      playDash,
+      playTag,
+      playRoundStart,
+      playRoundEnd,
+      playCountdownTick,
+      playStreakPing,
+      setRoundLoopActive,
+    ],
+  );
 }
