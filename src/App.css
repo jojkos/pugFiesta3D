@@ -463,6 +463,59 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Rotate gate */
+
+.rotate-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(255, 244, 205, 0.95), transparent 38%),
+    linear-gradient(180deg, #fff7ec 0%, #ffd8be 100%);
+}
+
+.rotate-gate-card {
+  max-width: 360px;
+  padding: 28px 26px;
+  border-radius: var(--radius-modal);
+  background: var(--paper);
+  border: 1px solid rgba(111, 60, 39, 0.16);
+  box-shadow: var(--shadow-modal);
+  text-align: center;
+}
+
+.rotate-gate-icon {
+  font-size: 3rem;
+  margin-bottom: 10px;
+  display: inline-block;
+  animation: rotateNudge 1.6s ease-in-out infinite;
+}
+
+@keyframes rotateNudge {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-90deg);
+  }
+}
+
+.rotate-gate-card h2 {
+  margin: 6px 0 8px;
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
+}
+
+.rotate-gate-card p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
 /* Touch */
 
 .touch-layer {
