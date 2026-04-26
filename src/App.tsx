@@ -161,22 +161,27 @@ function App() {
     return () => window.clearTimeout(timeoutId);
   }, [countdown, playCountdownTick]);
 
+  const playRoundEndRef = useRef(playRoundEnd);
+  useEffect(() => {
+    playRoundEndRef.current = playRoundEnd;
+  }, [playRoundEnd]);
+
   useEffect(() => {
     if (mode !== 'playing' || paused || countdown !== null) {
       return;
     }
 
-    let frameId = 0;
-    let startedAt =
+    const startedAt =
       performance.now() - (ROUND_DURATION - timeLeftRef.current) * 1000;
+    let frameId = 0;
 
-    const tick = (now: number) => {
-      const elapsedSeconds = (now - startedAt) / 1000;
+    const tick = () => {
+      const elapsedSeconds = (performance.now() - startedAt) / 1000;
       const remaining = Math.max(0, ROUND_DURATION - elapsedSeconds);
       setTimeLeft(remaining);
 
       if (remaining <= 0) {
-        playRoundEnd();
+        playRoundEndRef.current();
         setMode('gameOver');
         return;
       }
@@ -188,9 +193,8 @@ function App() {
 
     return () => {
       window.cancelAnimationFrame(frameId);
-      startedAt = 0;
     };
-  }, [countdown, mode, paused, playRoundEnd, roundId]);
+  }, [countdown, mode, paused, roundId]);
 
   const keyboardX = Number(keys.right) - Number(keys.left);
   const keyboardY = Number(keys.up) - Number(keys.down);
@@ -218,6 +222,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <RotateGate />
       <div className="scene-shell">
         <Canvas dpr={[1, 1.75]} shadows>
           <color attach="background" args={['#fde6d0']} />
@@ -306,6 +311,45 @@ function App() {
       </div>
     </div>
   );
+}
+
+function RotateGate() {
+  const [shouldRotate, setShouldRotate] = useState(() => isPortraitMobile());
+
+  useEffect(() => {
+    const update = () => setShouldRotate(isPortraitMobile());
+    update();
+    globalThis.addEventListener('resize', update);
+    globalThis.addEventListener('orientationchange', update);
+    return () => {
+      globalThis.removeEventListener('resize', update);
+      globalThis.removeEventListener('orientationchange', update);
+    };
+  }, []);
+
+  if (!shouldRotate) {
+    return null;
+  }
+
+  return (
+    <div className="rotate-gate">
+      <div className="rotate-gate-card">
+        <div className="rotate-gate-icon">📱</div>
+        <h2>Rotate your device</h2>
+        <p>Pug Fiesta plays best in landscape. Turn your phone sideways to start chasing.</p>
+      </div>
+    </div>
+  );
+}
+
+function isPortraitMobile() {
+  if (globalThis.window === undefined) {
+    return false;
+  }
+  const isCoarse = globalThis.matchMedia('(pointer: coarse)').matches;
+  const isPortrait = globalThis.innerHeight > globalThis.innerWidth;
+  const isSmall = Math.min(globalThis.innerWidth, globalThis.innerHeight) < 820;
+  return isCoarse && isPortrait && isSmall;
 }
 
 export default App;
