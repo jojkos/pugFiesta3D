@@ -371,7 +371,7 @@ export function PrototypeScene({
       const dashProgress =
         playerData.dashTime > 0 ? 1 - playerData.dashTime / DASH_DURATION : 0;
       const dashLift =
-        playerData.dashTime > 0 ? Math.sin(dashProgress * Math.PI) * 0.28 : 0;
+        playerData.dashTime > 0 ? Math.sin(dashProgress * Math.PI) * 0.55 : 0;
       const latchLift =
         playerData.latchTime > 0
           ? Math.sin((playerData.latchTime / LATCH_DURATION) * Math.PI) * 0.12

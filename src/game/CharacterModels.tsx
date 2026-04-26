@@ -5,6 +5,7 @@ import {
   AnimationAction,
   AnimationClip,
   Group,
+  LoopOnce,
   Mesh,
   MeshStandardMaterial,
 } from 'three';
@@ -27,7 +28,12 @@ type PugModelProps = ThreeElements['group'] & {
   actionRef?: ActionRef;
   npcIndex?: number;
   npcActions?: { current: CharacterAction[] };
+  modelUrl?: string;
+  bodyScale?: number;
 };
+
+const DEFAULT_MODEL_URL = '/assets/models/pug-quaternius.glb';
+const DEFAULT_BODY_SCALE = 0.34;
 
 type ActionMap = Partial<Record<CharacterAction, AnimationAction>>;
 
@@ -68,13 +74,25 @@ export function PugCharacter({
   actionRef,
   npcIndex,
   npcActions,
+  modelUrl = DEFAULT_MODEL_URL,
+  bodyScale = DEFAULT_BODY_SCALE,
   ...props
 }: Readonly<PugModelProps>) {
   const host = useRef<Group>(null);
   const root = useRef<Group>(null);
-  const { scene, animations } = useGLTF('/assets/models/pug-quaternius.glb');
+  const { scene, animations } = useGLTF(modelUrl);
   const clonedScene = useMemo(() => {
     const nextScene = clone(scene);
+
+    let totalMaterials = 0;
+    nextScene.traverse((object) => {
+      if (
+        object instanceof Mesh &&
+        object.material instanceof MeshStandardMaterial
+      ) {
+        totalMaterials += 1;
+      }
+    });
 
     nextScene.traverse((object) => {
       if (!(object instanceof Mesh)) {
@@ -93,6 +111,8 @@ export function PugCharacter({
         nextMaterial.color.set(palette.bodyColor);
       } else if (materialName.includes('brown')) {
         nextMaterial.color.set(palette.headColor);
+      } else if (totalMaterials === 1) {
+        nextMaterial.color.set(palette.bodyColor);
       }
 
       nextMaterial.roughness = 0.95;
@@ -139,6 +159,10 @@ export function PugCharacter({
     );
 
     actions.current = map;
+    if (map.dash) {
+      map.dash.setLoop(LoopOnce, 1);
+      map.dash.clampWhenFinished = true;
+    }
     const idle = map.idle;
     if (idle) {
       idle.reset().fadeIn(0.2).play();
@@ -154,15 +178,11 @@ export function PugCharacter({
 
   useFrame((_, delta) => {
     const map = actions.current;
-    if (!map.idle) {
-      return;
-    }
-
     const desired = npcActions
       ? npcActions.current[npcIndex ?? 0] ?? 'idle'
       : actionRef?.current ?? 'idle';
 
-    if (desired !== currentAction.current) {
+    if (map.idle && desired !== currentAction.current) {
       const previous = map[currentAction.current];
       const next = map[desired];
 
@@ -184,7 +204,7 @@ export function PugCharacter({
       const timeScales: Record<CharacterAction, number> = {
         idle: 1,
         run: 1.5,
-        dash: 1.85,
+        dash: 1.3,
         latch: 1.6,
         react: 1.2,
       };
@@ -194,7 +214,7 @@ export function PugCharacter({
     proceduralPhase.current += delta * (desired === 'run' ? 16 : desired === 'dash' ? 22 : 6);
     const rootNode = root.current;
     if (rootNode) {
-      const baseScale = 0.34;
+      const baseScale = bodyScale;
       let yOffset = 0;
       let scaleX = 1;
       let scaleY = 1;
@@ -206,10 +226,10 @@ export function PugCharacter({
         scaleY = 1 + Math.sin(proceduralPhase.current * 2) * 0.04;
         tiltX = -0.08;
       } else if (desired === 'dash') {
-        scaleX = 0.92;
-        scaleZ = 1.12;
-        tiltX = -0.18;
-        yOffset = 0.02;
+        scaleX = 0.86;
+        scaleZ = 1.22;
+        tiltX = -0.32;
+        yOffset = 0.05;
       } else if (desired === 'latch') {
         const wobble = Math.sin(proceduralPhase.current * 3) * 0.08;
         scaleX = 1 + wobble;
@@ -227,7 +247,7 @@ export function PugCharacter({
   return (
     <group ref={host} {...props}>
       <group position={[0, 0, 0]}>
-        <group ref={root} scale={0.34}>
+        <group ref={root} scale={bodyScale}>
           <primitive object={clonedScene} />
         </group>
 
@@ -253,3 +273,4 @@ export function PugCharacter({
 }
 
 useGLTF.preload('/assets/models/pug-quaternius.glb');
+useGLTF.preload('/assets/models/pugSmall.glb');
