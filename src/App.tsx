@@ -6,10 +6,22 @@ import { CAMERA_POSITION, ROUND_DURATION } from './game/config';
 import { screenInputToWorld, clampInput } from './game/input';
 import { Overlay } from './game/Overlay';
 import { PrototypeScene } from './game/PrototypeScene';
-import { pickRandomTagPhrase } from './game/tagPhrases';
 import { TouchControls } from './game/TouchControls';
 import { useArcadeAudio } from './game/useArcadeAudio';
-import { useFunnySpeech } from './game/useFunnySpeech';
+import {
+  defaultVoiceForLang,
+  getVoicesForLang,
+  isVoiceInLang,
+  playVoiceSample,
+  useFunnySpeech,
+} from './game/useFunnySpeech';
+import {
+  DEFAULT_LANG,
+  SUPPORTED_LANGS,
+  getStrings,
+  pickRandomTagPhrase,
+  type Lang,
+} from './game/i18n';
 import type { AnalogInput, GameMode, KeyboardState } from './game/types';
 
 function App() {
@@ -24,7 +36,23 @@ function App() {
     playStreakPing,
     setRoundLoopActive,
   } = useArcadeAudio(isMuted);
-  const speakPhrase = useFunnySpeech(isMuted);
+  const [lang, setLang] = useState<Lang>(() => {
+    if (globalThis.window === undefined) return DEFAULT_LANG;
+    const stored = globalThis.localStorage.getItem('pug-fiesta-lang');
+    if (stored && (SUPPORTED_LANGS as string[]).includes(stored)) {
+      return stored as Lang;
+    }
+    return DEFAULT_LANG;
+  });
+  const strings = getStrings(lang);
+  const [voiceId, setVoiceId] = useState(() => {
+    const fallback = defaultVoiceForLang(lang);
+    if (globalThis.window === undefined) return fallback;
+    const stored = globalThis.localStorage.getItem('pug-fiesta-voice-id');
+    if (stored && isVoiceInLang(stored, lang)) return stored;
+    return fallback;
+  });
+  const speakPhrase = useFunnySpeech(isMuted, voiceId);
   const [mode, setMode] = useState<GameMode>('menu');
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(() => {
@@ -230,7 +258,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <RotateGate />
+      <RotateGate strings={strings} />
       <div className="scene-shell">
         <Canvas dpr={[1, 1.75]} shadows>
           <color attach="background" args={['#fde6d0']} />
@@ -260,7 +288,7 @@ function App() {
             moveInput={worldMoveInput}
             onDashStart={playDash}
             onTag={() => {
-              const phrase = pickRandomTagPhrase();
+              const phrase = pickRandomTagPhrase(lang);
               const now = performance.now();
               const nextStreak =
                 now - lastTagAtRef.current < 3200 ? streak + 1 : 1;
@@ -299,6 +327,33 @@ function App() {
           onStartRound={startRound}
           onToggleMute={() => setIsMuted((value) => !value)}
           onTogglePause={() => setPaused((value) => !value)}
+          onVoiceChange={(next) => {
+            setVoiceId(next);
+            if (globalThis.window !== undefined) {
+              globalThis.localStorage.setItem('pug-fiesta-voice-id', next);
+            }
+            playVoiceSample(next, isMuted, strings.tagPhrases[0]);
+          }}
+          voiceId={voiceId}
+          lang={lang}
+          onLangChange={(next) => {
+            setLang(next);
+            if (globalThis.window !== undefined) {
+              globalThis.localStorage.setItem('pug-fiesta-lang', next);
+            }
+            if (!isVoiceInLang(voiceId, next)) {
+              const nextVoice = defaultVoiceForLang(next);
+              setVoiceId(nextVoice);
+              if (globalThis.window !== undefined) {
+                globalThis.localStorage.setItem(
+                  'pug-fiesta-voice-id',
+                  nextVoice,
+                );
+              }
+            }
+          }}
+          strings={strings}
+          voiceCharacters={getVoicesForLang(lang)}
           paused={paused}
           score={score}
           streak={streak}
@@ -308,6 +363,7 @@ function App() {
         />
 
         <TouchControls
+          dashLabel={strings.controls.dash}
           disabled={mode !== 'playing' || paused || countdown !== null}
           onDash={() => {
             if (!paused) {
@@ -321,7 +377,9 @@ function App() {
   );
 }
 
-function RotateGate() {
+function RotateGate({
+  strings,
+}: Readonly<{ strings: ReturnType<typeof getStrings> }>) {
   const [shouldRotate, setShouldRotate] = useState(() => isPortraitMobile());
 
   useEffect(() => {
@@ -343,8 +401,8 @@ function RotateGate() {
     <div className="rotate-gate">
       <div className="rotate-gate-card">
         <div className="rotate-gate-icon">📱</div>
-        <h2>Rotate your device</h2>
-        <p>Pug Fiesta plays best in landscape. Turn your phone sideways to start chasing.</p>
+        <h2>{strings.rotate.title}</h2>
+        <p>{strings.rotate.body}</p>
       </div>
     </div>
   );

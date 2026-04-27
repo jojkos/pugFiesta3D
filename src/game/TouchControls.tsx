@@ -6,11 +6,13 @@ export function TouchControls({
   disabled,
   onMove,
   onDash,
-}: {
+  dashLabel,
+}: Readonly<{
   disabled: boolean;
   onMove: (input: AnalogInput) => void;
   onDash: () => void;
-}) {
+  dashLabel: string;
+}>) {
   const stick = useRef<HTMLDivElement>(null);
   const [thumb, setThumb] = useState({ x: 0, y: 0 });
   const [dashPulse, setDashPulse] = useState(0);
@@ -104,7 +106,7 @@ export function TouchControls({
           }
         }}
       >
-        Dash
+        {dashLabel}
       </button>
     </div>
   );
