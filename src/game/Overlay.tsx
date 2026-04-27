@@ -1,4 +1,16 @@
 import type { GameMode } from './types';
+import type { VoiceCharacter } from './useFunnySpeech';
+import { SUPPORTED_LANGS, type Lang, type Strings } from './i18n';
+
+const LANG_FLAGS: Record<Lang, string> = {
+  cs: '🇨🇿',
+  en: '🇬🇧',
+};
+
+const LANG_LABELS: Record<Lang, string> = {
+  cs: 'Čeština',
+  en: 'English',
+};
 
 export function Overlay({
   bestScore,
@@ -15,6 +27,12 @@ export function Overlay({
   isMuted,
   onToggleMute,
   onTogglePause,
+  voiceId,
+  onVoiceChange,
+  voiceCharacters,
+  lang,
+  onLangChange,
+  strings,
 }: Readonly<{
   bestScore: number;
   countdown: number | null;
@@ -30,6 +48,12 @@ export function Overlay({
   isMuted: boolean;
   onToggleMute: () => void;
   onTogglePause: () => void;
+  voiceId: string;
+  onVoiceChange: (voiceId: string) => void;
+  voiceCharacters: VoiceCharacter[];
+  lang: Lang;
+  onLangChange: (lang: Lang) => void;
+  strings: Strings;
 }>) {
   const showHud = mode === 'playing';
   const lowTime = showHud && countdown === null && timeLeft <= 10;
@@ -39,15 +63,15 @@ export function Overlay({
       {showHud && (
         <header className="hud">
           <div className="hud-chip hud-score">
-            <span className="hud-label">score</span>
+            <span className="hud-label">{strings.hud.score}</span>
             <strong>{score}</strong>
           </div>
           <div className={`hud-chip hud-time ${lowTime ? 'is-low' : ''}`}>
-            <span className="hud-label">time</span>
+            <span className="hud-label">{strings.hud.time}</span>
             <strong>{Math.ceil(timeLeft)}</strong>
           </div>
           <div className="hud-chip hud-best">
-            <span className="hud-label">best</span>
+            <span className="hud-label">{strings.hud.best}</span>
             <strong>{bestScore}</strong>
           </div>
         </header>
@@ -56,7 +80,7 @@ export function Overlay({
       <div className="control-cluster">
         <button
           className="utility-button"
-          aria-label={isMuted ? 'Enable sound' : 'Mute sound'}
+          aria-label={isMuted ? strings.controls.enableSound : strings.controls.muteSound}
           onClick={onToggleMute}
         >
           {isMuted ? '🔇' : '🔊'}
@@ -64,7 +88,7 @@ export function Overlay({
         {mode === 'playing' && (
           <button
             className="utility-button"
-            aria-label={paused ? 'Resume round' : 'Pause round'}
+            aria-label={paused ? strings.controls.resume : strings.controls.pause}
             onClick={onTogglePause}
           >
             {paused ? '▶' : '⏸'}
@@ -75,58 +99,86 @@ export function Overlay({
       {mode === 'playing' && streak > 1 && (
         <div className="streak-badge" key={streak}>
           <span>{streak}×</span>
-          <small>combo</small>
+          <small>{strings.combo}</small>
         </div>
       )}
 
       {mode === 'playing' && countdown !== null && (
         <div className="countdown-overlay">
           <div className="countdown-disc" key={countdown}>
-            {countdown > 0 ? countdown : 'GO'}
+            {countdown > 0 ? countdown : strings.countdownGo}
           </div>
         </div>
       )}
 
-      {lowTime && <div className="rush-banner">final rush</div>}
+      {lowTime && <div className="rush-banner">{strings.finalRush}</div>}
 
       <div className={`tag-banner ${tagBurst > 0 ? 'is-visible' : ''}`}>
-        {tagPhrase || 'Nice latch'}
+        {tagPhrase || strings.defaultTagBanner}
       </div>
 
       {mode === 'menu' && (
         <div className="modal-backdrop is-menu">
           <section className="modal-panel modal-menu">
-            <p className="eyebrow">arcade chase</p>
-            <h2>Pug Fiesta</h2>
-            <p className="modal-lede">
-              Cut the angle. Time the pounce. Stack tags before the clock dies.
-            </p>
+            <p className="eyebrow">{strings.menu.eyebrow}</p>
+            <h2>{strings.menu.title}</h2>
+            <p className="modal-lede">{strings.menu.lede}</p>
             <div className="modal-grid">
               <div>
-                <span>Desktop</span>
-                <strong>WASD / Arrows</strong>
-                <small>Space to dash</small>
+                <span>{strings.menu.grid.desktopLabel}</span>
+                <strong>{strings.menu.grid.desktopValue}</strong>
+                <small>{strings.menu.grid.desktopHint}</small>
               </div>
               <div>
-                <span>Mobile</span>
-                <strong>Stick + Dash</strong>
-                <small>Touch friendly</small>
+                <span>{strings.menu.grid.mobileLabel}</span>
+                <strong>{strings.menu.grid.mobileValue}</strong>
+                <small>{strings.menu.grid.mobileHint}</small>
               </div>
               <div>
-                <span>Round</span>
-                <strong>45 seconds</strong>
-                <small>Beat your best</small>
+                <span>{strings.menu.grid.roundLabel}</span>
+                <strong>{strings.menu.grid.roundValue}</strong>
+                <small>{strings.menu.grid.roundHint}</small>
               </div>
               <div>
-                <span>Tag</span>
-                <strong>Latch on impact</strong>
-                <small>Hold the combo</small>
+                <span>{strings.menu.grid.tagLabel}</span>
+                <strong>{strings.menu.grid.tagValue}</strong>
+                <small>{strings.menu.grid.tagHint}</small>
+              </div>
+            </div>
+            <div className="voice-picker">
+              <span className="jersey-picker-label">{strings.menu.languageLabel}</span>
+              <div className="voice-options">
+                {SUPPORTED_LANGS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`voice-option ${lang === option ? 'is-active' : ''}`}
+                    onClick={() => onLangChange(option)}
+                  >
+                    {LANG_FLAGS[option]} {LANG_LABELS[option]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="voice-picker">
+              <span className="jersey-picker-label">{strings.menu.voiceLabel}</span>
+              <div className="voice-options">
+                {voiceCharacters.map((character) => (
+                  <button
+                    key={character.id}
+                    type="button"
+                    className={`voice-option ${voiceId === character.voiceId ? 'is-active' : ''}`}
+                    onClick={() => onVoiceChange(character.voiceId)}
+                  >
+                    {character.label}
+                  </button>
+                ))}
               </div>
             </div>
             <button className="primary-button" onClick={onStartRound}>
-              Start round
+              {strings.menu.start}
             </button>
-            <p className="modal-foot">Best so far · {bestScore} tags</p>
+            <p className="modal-foot">{strings.menu.bestSoFar(bestScore)}</p>
           </section>
         </div>
       )}
@@ -134,11 +186,11 @@ export function Overlay({
       {paused && mode === 'playing' && (
         <div className="modal-backdrop">
           <section className="modal-panel modal-pause">
-            <p className="eyebrow">paused</p>
-            <h2>Take a breath</h2>
-            <p className="modal-lede">Resume when you are ready to chase again.</p>
+            <p className="eyebrow">{strings.pause.eyebrow}</p>
+            <h2>{strings.pause.title}</h2>
+            <p className="modal-lede">{strings.pause.lede}</p>
             <button className="primary-button" onClick={onTogglePause}>
-              Resume
+              {strings.pause.resume}
             </button>
           </section>
         </div>
@@ -147,32 +199,35 @@ export function Overlay({
       {mode === 'gameOver' && (
         <div className="modal-backdrop">
           <section className="modal-panel modal-results">
-            <p className="eyebrow">round complete</p>
+            <p className="eyebrow">{strings.results.eyebrow}</p>
             <h2>
               <span className="results-number">{score}</span>
-              <span className="results-suffix">tags</span>
+              <span className="results-suffix">{strings.results.suffix}</span>
             </h2>
             <p className="modal-lede">
               {score > bestScore - 1 && score > 0
-                ? 'New personal best — push it further next round.'
-                : 'Tighten the timing and beat the line.'}
+                ? strings.results.newBest
+                : strings.results.tryAgain}
             </p>
             <div className="results-grid">
               <div>
-                <span>Best</span>
+                <span>{strings.results.best}</span>
                 <strong>{Math.max(score, bestScore)}</strong>
               </div>
               <div>
-                <span>Top combo</span>
+                <span>{strings.results.topCombo}</span>
                 <strong>{maxStreak}×</strong>
               </div>
               <div>
-                <span>Pace</span>
-                <strong>{(score / 45).toFixed(2)}/s</strong>
+                <span>{strings.results.pace}</span>
+                <strong>
+                  {(score / 45).toFixed(2)}
+                  {strings.results.paceUnit}
+                </strong>
               </div>
             </div>
             <button className="primary-button" onClick={onStartRound}>
-              Play again
+              {strings.results.again}
             </button>
           </section>
         </div>
