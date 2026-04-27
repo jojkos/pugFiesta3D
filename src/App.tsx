@@ -174,11 +174,18 @@ function App() {
     const startedAt =
       performance.now() - (ROUND_DURATION - timeLeftRef.current) * 1000;
     let frameId = 0;
+    let lastDisplayedSecond = Math.ceil(timeLeftRef.current);
 
     const tick = () => {
       const elapsedSeconds = (performance.now() - startedAt) / 1000;
       const remaining = Math.max(0, ROUND_DURATION - elapsedSeconds);
-      setTimeLeft(remaining);
+      timeLeftRef.current = remaining;
+
+      const nextDisplayedSecond = Math.ceil(remaining);
+      if (nextDisplayedSecond !== lastDisplayedSecond) {
+        lastDisplayedSecond = nextDisplayedSecond;
+        setTimeLeft(remaining);
+      }
 
       if (remaining <= 0) {
         playRoundEndRef.current();

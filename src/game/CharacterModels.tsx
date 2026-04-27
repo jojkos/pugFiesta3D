@@ -8,6 +8,7 @@ import {
   LoopOnce,
   Mesh,
   MeshStandardMaterial,
+  type Object3D,
 } from 'three';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
@@ -39,11 +40,14 @@ type ActionMap = Partial<Record<CharacterAction, AnimationAction>>;
 
 const PRIMARY_CLIP_PRIORITY: Record<CharacterAction, string[]> = {
   idle: ['Armature|Idle', 'Idle'],
-  run: ['Armature|Run', 'Armature|Walk', 'Run', 'Walk'],
+  run: ['Armature|Run', 'Armature|Walk', 'Run', 'Walk', 'baselayer', 'unreal'],
   dash: ['Armature|Jump', 'Armature|Run', 'Jump', 'Run'],
   latch: ['Armature|Bite', 'Armature|Attack', 'Armature|Idle', 'Idle'],
   react: ['Armature|HitReact', 'Armature|Idle', 'Idle'],
 };
+
+const LEG_BONE_NAMES = ['frontleg', 'R_frontleg', 'backleg', 'R_backleg'] as const;
+type LegKey = (typeof LEG_BONE_NAMES)[number];
 
 function pickClip(
   animations: AnimationClip[],
@@ -118,18 +122,35 @@ export function PugCharacter({
       nextMaterial.roughness = 0.95;
       nextMaterial.metalness = 0;
       object.material = nextMaterial;
-      object.castShadow = true;
+      object.castShadow = !isPlayer;
       object.receiveShadow = true;
     });
 
     return nextScene;
-  }, [palette.bodyColor, palette.headColor, scene]);
+  }, [palette.bodyColor, palette.headColor, scene, isPlayer]);
 
   const { mixer } = useAnimations(animations, root);
   const accessoryColor = palette.accessoryColor ?? palette.accentColor;
   const actions = useRef<ActionMap>({});
   const currentAction = useRef<CharacterAction>('idle');
   const proceduralPhase = useRef(((npcIndex ?? 0) * 1.37) % (Math.PI * 2));
+  const dashTimer = useRef(0);
+  const legBones = useRef<Partial<Record<LegKey, Object3D>>>({});
+  const legBindRotX = useRef<Partial<Record<LegKey, number>>>({});
+  const singleClipMode = useRef(false);
+
+  useEffect(() => {
+    const found: Partial<Record<LegKey, Object3D>> = {};
+    const bind: Partial<Record<LegKey, number>> = {};
+    clonedScene.traverse((object) => {
+      if (LEG_BONE_NAMES.includes(object.name as LegKey)) {
+        found[object.name as LegKey] = object;
+        bind[object.name as LegKey] = object.rotation.x;
+      }
+    });
+    legBones.current = found;
+    legBindRotX.current = bind;
+  }, [clonedScene]);
 
   useEffect(() => {
     if (!root.current) {
@@ -159,7 +180,9 @@ export function PugCharacter({
     );
 
     actions.current = map;
-    if (map.dash) {
+    const uniqueActions = new Set(Object.values(map));
+    singleClipMode.current = uniqueActions.size === 1;
+    if (map.dash && !singleClipMode.current) {
       map.dash.setLoop(LoopOnce, 1);
       map.dash.clampWhenFinished = true;
     }
@@ -182,33 +205,57 @@ export function PugCharacter({
       ? npcActions.current[npcIndex ?? 0] ?? 'idle'
       : actionRef?.current ?? 'idle';
 
-    if (map.idle && desired !== currentAction.current) {
-      const previous = map[currentAction.current];
+    const previousActionLabel = currentAction.current;
+    if (map.idle && desired !== previousActionLabel) {
+      const previous = map[previousActionLabel];
       const next = map[desired];
 
       if (previous && previous !== next) {
         previous.fadeOut(0.12);
       }
-      if (next) {
-        if (next === previous) {
-          next.reset();
-        } else {
-          next.reset().fadeIn(0.12).play();
-        }
+      if (next && next !== previous) {
+        next.reset().fadeIn(0.12).play();
       }
       currentAction.current = desired;
+      if (desired === 'dash') {
+        dashTimer.current = 0;
+      }
+    }
+
+    if (desired === 'dash') {
+      dashTimer.current += delta;
     }
 
     const action = map[desired];
     if (action) {
-      const timeScales: Record<CharacterAction, number> = {
-        idle: 1,
-        run: 1.5,
-        dash: 1.3,
-        latch: 1.6,
-        react: 1.2,
-      };
+      const timeScales: Record<CharacterAction, number> = singleClipMode.current
+        ? { idle: 0.15, run: 1.5, dash: 0, latch: 0.4, react: 0 }
+        : { idle: 1, run: 1.5, dash: 1.3, latch: 1.6, react: 1.2 };
       action.timeScale = timeScales[desired];
+    }
+
+    const legs = legBones.current;
+    const bindX = legBindRotX.current;
+    if (Object.keys(legs).length > 0) {
+      const dashDuration = 0.22;
+      const dashProgress =
+        desired === 'dash'
+          ? Math.min(1, dashTimer.current / dashDuration)
+          : 0;
+      const dashArc = desired === 'dash' ? Math.sin(dashProgress * Math.PI) : 0;
+      const frontDelta = -1.1 * dashArc;
+      const backDelta = 0.9 * dashArc;
+      const apply = (key: LegKey, delta: number) => {
+        const bone = legs[key];
+        const bindBase = bindX[key];
+        if (bone && bindBase !== undefined && desired === 'dash') {
+          bone.rotation.x = bindBase + delta;
+        }
+      };
+      apply('frontleg', frontDelta);
+      apply('R_frontleg', frontDelta);
+      apply('backleg', backDelta);
+      apply('R_backleg', backDelta);
     }
 
     proceduralPhase.current += delta * (desired === 'run' ? 16 : desired === 'dash' ? 22 : 6);
@@ -273,4 +320,4 @@ export function PugCharacter({
 }
 
 useGLTF.preload('/assets/models/pug-quaternius.glb');
-useGLTF.preload('/assets/models/pugSmall.glb');
+useGLTF.preload('/assets/models/pugMeshy.glb');
