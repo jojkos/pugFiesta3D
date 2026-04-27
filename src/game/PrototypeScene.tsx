@@ -94,6 +94,9 @@ export function PrototypeScene({
       variant: 0,
     })),
   );
+  const scratchVec2 = useRef(new Vector2());
+  const scratchCameraFocus = useRef(new Vector3());
+  const scratchCameraPos = useRef(new Vector3());
   const decor = useMemo(
     () =>
       Array.from({ length: 18 }, (_, index) => {
@@ -153,7 +156,7 @@ export function PrototypeScene({
       canDash &&
       now - playerData.dashRequestedAt < DASH_BUFFER
     ) {
-      const direction = new Vector2(moveInput.x, moveInput.y);
+      const direction = scratchVec2.current.set(moveInput.x, moveInput.y);
       if (direction.lengthSq() > 0.01) {
         direction.normalize();
         facingVector.current.copy(direction);
@@ -176,7 +179,7 @@ export function PrototypeScene({
     }
 
     if (isPlaying && !hitstopActive) {
-      const moveVector = new Vector2(moveInput.x, moveInput.y);
+      const moveVector = scratchVec2.current.set(moveInput.x, moveInput.y);
       if (moveVector.lengthSq() > 1) {
         moveVector.normalize();
       }
@@ -350,11 +353,15 @@ export function PrototypeScene({
     const shakeOffsetZ = cameraShakeDirZ.current * shakeAmount;
 
     cameraFocus.current.lerp(
-      new Vector3(playerData.x * 0.22, 0, playerData.z * 0.22),
+      scratchCameraFocus.current.set(
+        playerData.x * 0.22,
+        0,
+        playerData.z * 0.22,
+      ),
       0.08,
     );
     camera.position.lerp(
-      new Vector3(
+      scratchCameraPos.current.set(
         CAMERA_POSITION.x + cameraFocus.current.x + shakeOffsetX,
         CAMERA_POSITION.y,
         CAMERA_POSITION.z + cameraFocus.current.z + shakeOffsetZ,
@@ -483,6 +490,8 @@ export function PrototypeScene({
           <PugCharacter
             isPlayer
             actionRef={playerAction}
+            modelUrl="/assets/models/pugMeshy.glb"
+            bodyScale={500}
             palette={{
               bodyColor: '#d9b58d',
               headColor: '#39211a',
