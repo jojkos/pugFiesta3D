@@ -94,7 +94,7 @@ export function Overlay({
 
   useEffect(() => {
     if (mode === 'gameOver' && submitState === 'idle' && typeof window !== 'undefined') {
-      const stored = window.localStorage.getItem('pug-fiesta-player-name') ?? '';
+      const stored = window.localStorage.getItem('pug-banger-fiesta-player-name') ?? '';
       setPendingName(stored);
     }
   }, [mode, submitState]);
@@ -105,7 +105,7 @@ export function Overlay({
     setSubmitState('submitting');
     const trimmed = pendingName.trim();
     if (typeof window !== 'undefined' && trimmed) {
-      window.localStorage.setItem('pug-fiesta-player-name', trimmed);
+      window.localStorage.setItem('pug-banger-fiesta-player-name', trimmed);
     }
     await onSubmitScore(trimmed);
     setSubmitState('done');
@@ -195,7 +195,7 @@ export function Overlay({
             <img
               className="menu-logo"
               src="/assets/images/logo.png"
-              alt="Pug Fiesta"
+              alt="Pug Banger Fiesta"
             />
             <p className="eyebrow">{strings.menu.eyebrow}</p>
             <h2>{strings.menu.title}</h2>

@@ -39,7 +39,7 @@ function App() {
   } = useArcadeAudio(isMuted);
   const [lang, setLang] = useState<Lang>(() => {
     if (globalThis.window === undefined) return DEFAULT_LANG;
-    const stored = globalThis.localStorage.getItem('pug-fiesta-lang');
+    const stored = globalThis.localStorage.getItem('pug-banger-fiesta-lang');
     if (stored && (SUPPORTED_LANGS as string[]).includes(stored)) {
       return stored as Lang;
     }
@@ -49,7 +49,7 @@ function App() {
   const [voiceId, setVoiceId] = useState(() => {
     const fallback = defaultVoiceForLang(lang);
     if (globalThis.window === undefined) return fallback;
-    const stored = globalThis.localStorage.getItem('pug-fiesta-voice-id');
+    const stored = globalThis.localStorage.getItem('pug-banger-fiesta-voice-id');
     if (stored && isVoiceInLang(stored, lang)) return stored;
     return fallback;
   });
@@ -61,13 +61,13 @@ function App() {
       return 0;
     }
 
-    return Number(window.localStorage.getItem('pug-fiesta-best-score') ?? 0) || 0;
+    return Number(window.localStorage.getItem('pug-banger-fiesta-best-score') ?? 0) || 0;
   });
   const [jerseyColor, setJerseyColor] = useState(() => {
     if (typeof window === 'undefined') {
       return '#5b3aa3';
     }
-    return window.localStorage.getItem('pug-fiesta-jersey-color') ?? '#5b3aa3';
+    return window.localStorage.getItem('pug-banger-fiesta-jersey-color') ?? '#5b3aa3';
   });
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
   const timeLeftRef = useRef(ROUND_DURATION);
@@ -318,7 +318,7 @@ function App() {
                 if (nextScore > bestScore) {
                   setBestScore(nextScore);
                   window.localStorage.setItem(
-                    'pug-fiesta-best-score',
+                    'pug-banger-fiesta-best-score',
                     String(nextScore),
                   );
                 }
@@ -341,7 +341,7 @@ function App() {
           onJerseyColorChange={(color) => {
             setJerseyColor(color);
             if (typeof window !== 'undefined') {
-              window.localStorage.setItem('pug-fiesta-jersey-color', color);
+              window.localStorage.setItem('pug-banger-fiesta-jersey-color', color);
             }
           }}
           onStartRound={startRound}
@@ -355,7 +355,7 @@ function App() {
           onVoiceChange={(next) => {
             setVoiceId(next);
             if (globalThis.window !== undefined) {
-              globalThis.localStorage.setItem('pug-fiesta-voice-id', next);
+              globalThis.localStorage.setItem('pug-banger-fiesta-voice-id', next);
             }
             playVoiceSample(next, isMuted, strings.tagPhrases[0], lang);
           }}
@@ -364,14 +364,14 @@ function App() {
           onLangChange={(next) => {
             setLang(next);
             if (globalThis.window !== undefined) {
-              globalThis.localStorage.setItem('pug-fiesta-lang', next);
+              globalThis.localStorage.setItem('pug-banger-fiesta-lang', next);
             }
             if (!isVoiceInLang(voiceId, next)) {
               const nextVoice = defaultVoiceForLang(next);
               setVoiceId(nextVoice);
               if (globalThis.window !== undefined) {
                 globalThis.localStorage.setItem(
-                  'pug-fiesta-voice-id',
+                  'pug-banger-fiesta-voice-id',
                   nextVoice,
                 );
               }
