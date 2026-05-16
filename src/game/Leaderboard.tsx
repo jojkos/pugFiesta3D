@@ -30,7 +30,15 @@ export function Leaderboard({
   const podium = entries.slice(0, 3);
   const rest = entries.slice(3);
 
-  if (error) return <p className="lb-message">{t.error}</p>;
+  if (error) {
+    return (
+      <p className="lb-message">
+        {t.error}
+        <br />
+        <small style={{ opacity: 0.7 }}>{error}</small>
+      </p>
+    );
+  }
   if (loading && entries.length === 0) return <p className="lb-message">{t.loading}</p>;
   if (!loading && entries.length === 0) return <p className="lb-message">{t.empty}</p>;
 
@@ -114,7 +122,15 @@ export function MiniLeaderboard({
   const t = strings.leaderboard;
   const list = entries.slice(0, limit);
 
-  if (error) return <p className="lb-message">{t.error}</p>;
+  if (error) {
+    return (
+      <p className="lb-message">
+        {t.error}
+        <br />
+        <small style={{ opacity: 0.7 }}>{error}</small>
+      </p>
+    );
+  }
   if (loading && list.length === 0) return <p className="lb-message">{t.loading}</p>;
   if (!loading && list.length === 0) return <p className="lb-message">{t.empty}</p>;
 
