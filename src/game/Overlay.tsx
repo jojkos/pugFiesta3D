@@ -274,9 +274,10 @@ export function Overlay({
         <div className="modal-backdrop is-menu">
           <section className="menu">
             <div className="menu-hero">
-              <div
+              <img
                 className="menu-logo"
-                style={{ backgroundImage: 'url(/assets/images/logo.png)' }}
+                src="/assets/images/logo.png"
+                alt="Pug Banger Fiesta"
               />
               <div className="menu-info">
                 <p className="menu-eye">{strings.menu.eyebrow}</p>
