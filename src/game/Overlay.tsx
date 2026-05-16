@@ -192,6 +192,11 @@ export function Overlay({
       {mode === 'menu' && !menuLeaderboardOpen && (
         <div className="modal-backdrop is-menu">
           <section className="modal-panel modal-menu">
+            <img
+              className="menu-logo"
+              src="/assets/images/logo.png"
+              alt="Pug Fiesta"
+            />
             <p className="eyebrow">{strings.menu.eyebrow}</p>
             <h2>{strings.menu.title}</h2>
             <p className="modal-lede">{strings.menu.lede}</p>

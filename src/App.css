@@ -330,6 +330,27 @@ body {
   letter-spacing: -0.02em;
 }
 
+.menu-logo {
+  display: block;
+  width: clamp(140px, 38vw, 220px);
+  height: auto;
+  margin: -4px auto 14px;
+  animation: menuLogoPulse 2.6s ease-in-out infinite;
+  filter: drop-shadow(0 8px 18px rgba(91, 58, 163, 0.18));
+  user-select: none;
+  pointer-events: none;
+}
+
+@keyframes menuLogoPulse {
+  0%,
+  100% {
+    transform: scale(1) rotate(-1deg);
+  }
+  50% {
+    transform: scale(1.04) rotate(1deg);
+  }
+}
+
 .modal-lede {
   margin: 0 auto 22px;
   max-width: 36ch;
