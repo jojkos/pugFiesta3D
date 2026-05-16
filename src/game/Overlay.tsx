@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { LeaderboardEntry } from '../lib/supabase';
 import type { GameMode } from './types';
 import type { VoiceCharacter } from './useFunnySpeech';
-import { Leaderboard } from './Leaderboard';
+import { Leaderboard, MiniLeaderboard } from './Leaderboard';
 import { SUPPORTED_LANGS, type Lang, type Strings } from './i18n';
 
 const LANG_FLAGS: Record<Lang, string> = {
@@ -15,14 +16,65 @@ const LANG_LABELS: Record<Lang, string> = {
   en: 'English',
 };
 
-const JERSEY_PRESETS = [
-  '#5b3aa3',
-  '#ff7d8e',
-  '#ffb25b',
-  '#3ec5a3',
-  '#5aa9ff',
-  '#2a1713',
+const JERSEY_PRESETS: Readonly<{ hex: string; label: string }[]> = [
+  { hex: '#5b3aa3', label: 'Indigo' },
+  { hex: '#ff7d8e', label: 'Pink' },
+  { hex: '#ffb25b', label: 'Amber' },
+  { hex: '#3ec5a3', label: 'Mint' },
+  { hex: '#5aa9ff', label: 'Sky' },
+  { hex: '#2a1713', label: 'Ink' },
 ];
+
+function useOutside(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
+  useEffect(() => {
+    function onDown(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [ref, onClose]);
+}
+
+function ChipPopover({
+  label,
+  value,
+  leading,
+  children,
+}: Readonly<{
+  label: string;
+  value: string;
+  leading?: ReactNode;
+  children: (close: () => void) => ReactNode;
+}>) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useOutside(wrap, () => setOpen(false));
+
+  return (
+    <div ref={wrap} className="menu-chip-wrap">
+      <button
+        type="button"
+        className={`menu-chip ${open ? 'is-open' : ''}`}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {leading}
+        <small>{label}</small>
+        <span className="menu-chip-value">{value}</span>
+        <span className="caret" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div className="menu-pop">
+          <p className="menu-pop-title">{label}</p>
+          <div className="menu-pop-options">{children(() => setOpen(false))}</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Overlay({
   bestScore,
@@ -114,6 +166,18 @@ export function Overlay({
   const showHud = mode === 'playing';
   const lowTime = showHud && countdown === null && timeLeft <= 10;
 
+  const langLabel = LANG_LABELS[lang];
+  const langFlag = LANG_FLAGS[lang];
+  const jerseyLabel =
+    JERSEY_PRESETS.find((preset) => preset.hex.toLowerCase() === jerseyColor.toLowerCase())
+      ?.label ?? 'Custom';
+  const voiceLabel =
+    voiceCharacters.find((character) => character.voiceId === voiceId)?.label ??
+    voiceCharacters[0]?.label ??
+    '';
+
+  const isNewBest = mode === 'gameOver' && score > 0 && score >= bestScore;
+
   return (
     <>
       {showHud && (
@@ -168,18 +232,35 @@ export function Overlay({
 
       {mode === 'menu' && menuLeaderboardOpen && (
         <div className="modal-backdrop is-menu">
-          <section className="modal-panel modal-menu">
-            <p className="eyebrow">{strings.leaderboard.eyebrow}</p>
-            <h2>{strings.leaderboard.title}</h2>
+          <section className="lb">
+            <div className="lb-head">
+              <div>
+                <p className="lb-eye">{strings.leaderboard.eyebrow}</p>
+                <h2 className="lb-title">{strings.leaderboard.title}</h2>
+              </div>
+              <button
+                className="lb-close"
+                aria-label={strings.leaderboard.back}
+                onClick={() => setMenuLeaderboardOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
             <Leaderboard
               entries={leaderboardEntries}
               loading={leaderboardLoading}
               error={leaderboardError}
+              highlightId={highlightedEntryId}
               strings={strings}
             />
-            <div className="modal-actions">
+
+            <div className="lb-actions">
+              <button className="lb-btn-prim" onClick={onStartRound}>
+                ▶ {strings.menu.start}
+              </button>
               <button
-                className="primary-button"
+                className="lb-btn-sec"
                 onClick={() => setMenuLeaderboardOpen(false)}
               >
                 {strings.leaderboard.back}
@@ -191,99 +272,128 @@ export function Overlay({
 
       {mode === 'menu' && !menuLeaderboardOpen && (
         <div className="modal-backdrop is-menu">
-          <section className="modal-panel modal-menu">
-            <img
-              className="menu-logo"
-              src="/assets/images/logo.png"
-              alt="Pug Banger Fiesta"
-            />
-            <p className="eyebrow">{strings.menu.eyebrow}</p>
-            <h2>{strings.menu.title}</h2>
-            <p className="modal-lede">{strings.menu.lede}</p>
-            <div className="modal-grid">
-              <div>
-                <span>{strings.menu.grid.desktopLabel}</span>
-                <strong>{strings.menu.grid.desktopValue}</strong>
-                <small>{strings.menu.grid.desktopHint}</small>
-              </div>
-              <div>
-                <span>{strings.menu.grid.mobileLabel}</span>
-                <strong>{strings.menu.grid.mobileValue}</strong>
-                <small>{strings.menu.grid.mobileHint}</small>
-              </div>
-              <div>
-                <span>{strings.menu.grid.roundLabel}</span>
-                <strong>{strings.menu.grid.roundValue}</strong>
-                <small>{strings.menu.grid.roundHint}</small>
+          <section className="menu">
+            <div className="menu-hero">
+              <div
+                className="menu-logo"
+                style={{ backgroundImage: 'url(/assets/images/logo.png)' }}
+              />
+              <div className="menu-info">
+                <p className="menu-eye">{strings.menu.eyebrow}</p>
+                <h2 className="menu-title">{strings.menu.title}</h2>
+                <p className="menu-lede">{strings.menu.lede}</p>
               </div>
             </div>
-            <div className="voice-picker">
-              <span className="jersey-picker-label">{strings.menu.languageLabel}</span>
-              <div className="voice-options">
-                {SUPPORTED_LANGS.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className={`voice-option ${lang === option ? 'is-active' : ''}`}
-                    onClick={() => onLangChange(option)}
-                  >
-                    {LANG_FLAGS[option]} {LANG_LABELS[option]}
-                  </button>
-                ))}
-              </div>
+
+            <div className="menu-cust">
+              <ChipPopover
+                label={strings.menu.languageLabel}
+                value={langLabel}
+                leading={<span className="flag">{langFlag}</span>}
+              >
+                {(close) => (
+                  <>
+                    {SUPPORTED_LANGS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`menu-pop-opt ${lang === option ? 'on' : ''}`}
+                        onClick={() => {
+                          onLangChange(option);
+                          close();
+                        }}
+                      >
+                        {LANG_FLAGS[option]} {LANG_LABELS[option]}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </ChipPopover>
+
+              <ChipPopover
+                label={strings.menu.jerseyColor}
+                value={jerseyLabel}
+                leading={<span className="dot" style={{ background: jerseyColor }} />}
+              >
+                {(close) => (
+                  <>
+                    {JERSEY_PRESETS.map((preset) => {
+                      const active =
+                        preset.hex.toLowerCase() === jerseyColor.toLowerCase();
+                      return (
+                        <button
+                          key={preset.hex}
+                          type="button"
+                          className={`menu-pop-swatch ${active ? 'on' : ''}`}
+                          style={{ background: preset.hex }}
+                          title={preset.label}
+                          aria-label={strings.menu.jerseySwatchLabel(preset.label)}
+                          onClick={() => {
+                            onJerseyColorChange(preset.hex);
+                            close();
+                          }}
+                        />
+                      );
+                    })}
+                    <label
+                      className="menu-pop-swatch menu-pop-swatch-custom"
+                      style={{ background: jerseyColor }}
+                      title={strings.menu.jerseyCustom}
+                      aria-label={strings.menu.jerseyCustom}
+                    >
+                      <span aria-hidden="true">+</span>
+                      <input
+                        type="color"
+                        value={jerseyColor}
+                        onChange={(event) => onJerseyColorChange(event.target.value)}
+                      />
+                    </label>
+                  </>
+                )}
+              </ChipPopover>
+
+              <ChipPopover label={strings.menu.voiceLabel} value={voiceLabel}>
+                {(close) => (
+                  <>
+                    {voiceCharacters.map((character) => (
+                      <button
+                        key={character.id}
+                        type="button"
+                        className={`menu-pop-opt ${voiceId === character.voiceId ? 'on' : ''}`}
+                        onClick={() => {
+                          onVoiceChange(character.voiceId);
+                          close();
+                        }}
+                      >
+                        {character.label}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </ChipPopover>
             </div>
-            <div className="jersey-picker">
-              <span className="jersey-picker-label">Jersey color</span>
-              <div className="jersey-swatches">
-                {JERSEY_PRESETS.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    aria-label={`Use ${color} jersey`}
-                    className={`jersey-swatch ${jerseyColor.toLowerCase() === color.toLowerCase() ? 'is-active' : ''}`}
-                    style={{ background: color }}
-                    onClick={() => onJerseyColorChange(color)}
-                  />
-                ))}
-                <label
-                  className="jersey-swatch jersey-swatch-custom"
-                  style={{ background: jerseyColor }}
-                  aria-label="Pick custom jersey color"
-                >
-                  <span aria-hidden="true">+</span>
-                  <input
-                    type="color"
-                    value={jerseyColor}
-                    onChange={(event) => onJerseyColorChange(event.target.value)}
-                  />
-                </label>
-              </div>
-            </div>
-            <div className="voice-picker">
-              <span className="jersey-picker-label">{strings.menu.voiceLabel}</span>
-              <div className="voice-options">
-                {voiceCharacters.map((character) => (
-                  <button
-                    key={character.id}
-                    type="button"
-                    className={`voice-option ${voiceId === character.voiceId ? 'is-active' : ''}`}
-                    onClick={() => onVoiceChange(character.voiceId)}
-                  >
-                    {character.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button className="primary-button" onClick={onStartRound}>
-                {strings.menu.start}
+
+            <div className="menu-actions">
+              <button className="menu-start" onClick={onStartRound}>
+                ▶ {strings.menu.start}
               </button>
               <button
-                className="secondary-button"
+                className="menu-hall"
                 onClick={() => setMenuLeaderboardOpen(true)}
               >
-                {strings.leaderboard.showButton}
+                🏆 {strings.leaderboard.showButton}
               </button>
+            </div>
+
+            <div className="menu-foot">
+              <span>
+                <kbd>WASD</kbd> / <kbd>↑↓←→</kbd> · <kbd>Space</kbd>
+              </span>
+              <span>
+                {strings.menu.bestSoFar(
+                  Math.max(leaderboardEntries[0]?.score ?? 0, bestScore),
+                )}
+              </span>
             </div>
           </section>
         </div>
@@ -291,17 +401,21 @@ export function Overlay({
 
       {paused && mode === 'playing' && (
         <div className="modal-backdrop">
-          <section className="modal-panel modal-pause">
-            <p className="eyebrow">{strings.pause.eyebrow}</p>
-            <h2>{strings.pause.title}</h2>
-            <p className="modal-lede">{strings.pause.lede}</p>
-            <div className="modal-actions">
-              <button className="primary-button" onClick={onTogglePause}>
-                {strings.pause.resume}
+          <section className="pa">
+            <div className="pa-icon">⏸</div>
+            <p className="pa-eye">{strings.pause.eyebrow}</p>
+            <h2 className="pa-title">{strings.pause.title}</h2>
+            <p className="pa-lede">{strings.pause.lede}</p>
+            <div className="pa-actions">
+              <button className="pa-btn-prim" onClick={onTogglePause}>
+                ▶ {strings.pause.resume}
               </button>
-              <button className="secondary-button" onClick={onQuitToMenu}>
+              <button className="pa-btn-sec" onClick={onQuitToMenu}>
                 {strings.mainMenu}
               </button>
+            </div>
+            <div className="pa-keys">
+              <kbd>Esc</kbd> {strings.pause.resume} · <kbd>Space</kbd> {strings.controls.dash}
             </div>
           </section>
         </div>
@@ -309,24 +423,26 @@ export function Overlay({
 
       {mode === 'gameOver' && (
         <div className="modal-backdrop">
-          <section className="modal-panel modal-results">
-            <p className="eyebrow">{strings.results.eyebrow}</p>
-            <h2>
-              <span className="results-number">{score}</span>
-              <span className="results-suffix">{strings.results.suffix}</span>
-            </h2>
-            <p className="modal-lede">
-              {(() => {
-                if (score >= bestScore && score > 0) return strings.results.newBest;
-                return strings.results.tryAgain;
-              })()}
-            </p>
-            <div className="results-grid">
-              <div>
+          <section className="res">
+            <div className="res-head">
+              <p className="res-eye">{strings.results.eyebrow}</p>
+              <div className="res-score">
+                <span className="res-score-num">{score}</span>
+                <span className="res-score-suf">{strings.results.suffix}</span>
+              </div>
+              {isNewBest ? (
+                <div className="res-msg is-best">★ {strings.results.newBest}</div>
+              ) : (
+                <p className="res-msg">{strings.results.tryAgain}</p>
+              )}
+            </div>
+
+            <div className="res-stats">
+              <div className="res-stat">
                 <span>{strings.results.best}</span>
                 <strong>{Math.max(score, bestScore)}</strong>
               </div>
-              <div>
+              <div className="res-stat">
                 <span>{strings.results.pace}</span>
                 <strong>
                   {(score / 45).toFixed(2)}
@@ -335,50 +451,50 @@ export function Overlay({
               </div>
             </div>
 
+            <aside className="res-side">
+              <div className="res-side-head">
+                <h3 className="res-side-title">{strings.leaderboard.title}</h3>
+              </div>
+              <MiniLeaderboard
+                entries={leaderboardEntries}
+                loading={leaderboardLoading}
+                error={leaderboardError}
+                highlightId={highlightedEntryId}
+                strings={strings}
+              />
+            </aside>
+
             {score > 0 && submitState !== 'done' && (
-              <form className="submit-score-form" onSubmit={handleSubmit}>
-                <label className="jersey-picker-label">
-                  {strings.leaderboard.namePrompt}
-                </label>
-                <div className="submit-score-row">
-                  <input
-                    className="submit-score-input"
-                    maxLength={24}
-                    value={pendingName}
-                    onChange={(event) => setPendingName(event.target.value)}
-                    placeholder={strings.leaderboard.namePlaceholder}
-                    disabled={submitState !== 'idle'}
-                  />
-                  <button
-                    type="submit"
-                    className="primary-button submit-score-button"
-                    disabled={submitState !== 'idle'}
-                  >
-                    {submitState === 'submitting'
-                      ? strings.leaderboard.submitting
-                      : strings.leaderboard.submit}
-                  </button>
-                </div>
+              <form className="res-submit" onSubmit={handleSubmit}>
+                <input
+                  className="res-submit-input"
+                  maxLength={24}
+                  value={pendingName}
+                  onChange={(event) => setPendingName(event.target.value)}
+                  placeholder={strings.leaderboard.namePlaceholder}
+                  disabled={submitState !== 'idle'}
+                />
+                <button
+                  type="submit"
+                  className="res-submit-btn"
+                  disabled={submitState !== 'idle'}
+                >
+                  {submitState === 'submitting'
+                    ? strings.leaderboard.submitting
+                    : strings.leaderboard.submit}
+                </button>
               </form>
             )}
 
             {submitState === 'done' && (
-              <p className="submit-done">{strings.leaderboard.submitted}</p>
+              <p className="res-submit-done">{strings.leaderboard.submitted}</p>
             )}
 
-            <Leaderboard
-              entries={leaderboardEntries}
-              loading={leaderboardLoading}
-              error={leaderboardError}
-              highlightId={highlightedEntryId}
-              strings={strings}
-            />
-
-            <div className="modal-actions">
-              <button className="primary-button" onClick={onStartRound}>
-                {strings.results.again}
+            <div className="res-actions">
+              <button className="res-btn-prim" onClick={onStartRound}>
+                ▶ {strings.results.again}
               </button>
-              <button className="secondary-button" onClick={onQuitToMenu}>
+              <button className="res-btn-sec" onClick={onQuitToMenu}>
                 {strings.mainMenu}
               </button>
             </div>
