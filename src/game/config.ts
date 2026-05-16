@@ -5,8 +5,9 @@ export const ROUND_DURATION = 45;
 export const ARENA_LIMIT = 8.5;
 export const DASH_DURATION = 0.22;
 export const DASH_COOLDOWN = 0.42;
-export const LATCH_DURATION = 0.32;
-export const NPC_COUNT = 4;
+export const LATCH_DURATION = 0.64;
+export const MAX_SIMULTANEOUS_LATCHES = 2;
+export const NPC_COUNT = 7;
 export const DASH_BUFFER = 0.18;
 export const HITSTOP_DURATION = 0.08;
 export const TAG_RADIUS = 1.35;
@@ -47,5 +48,23 @@ export const NPC_VARIANTS: NpcVariant[] = [
     headColor: '#4a2d29',
     dressColor: '#ffb67d',
     accentColor: '#ff88b0',
+  },
+  {
+    bodyColor: '#f6d8b8',
+    headColor: '#3a201c',
+    dressColor: '#ff6fb1',
+    accentColor: '#7be2ff',
+  },
+  {
+    bodyColor: '#e9c39e',
+    headColor: '#492a25',
+    dressColor: '#b0ff8a',
+    accentColor: '#ffd76a',
+  },
+  {
+    bodyColor: '#f1cdab',
+    headColor: '#3d231e',
+    dressColor: '#ffdf6b',
+    accentColor: '#ff9bd5',
   },
 ];

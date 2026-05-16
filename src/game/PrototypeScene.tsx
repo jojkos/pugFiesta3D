@@ -11,6 +11,7 @@ import {
   DASH_SPEED,
   HITSTOP_DURATION,
   LATCH_DURATION,
+  MAX_SIMULTANEOUS_LATCHES,
   NPC_COUNT,
   NPC_FLEE_RADIUS,
   NPC_RESPAWN_DELAY,
@@ -32,7 +33,7 @@ type PlayerState = {
   dashTime: number;
   dashCooldown: number;
   latchTime: number;
-  latchedNpcId: number | null;
+  latchedNpcIds: number[];
   bob: number;
   dashRequestedAt: number;
 };
@@ -55,6 +56,7 @@ export function PrototypeScene({
   onDashStart,
   onTag,
   roundId,
+  jerseyColor,
 }: {
   isPlaying: boolean;
   moveInput: AnalogInput;
@@ -62,6 +64,7 @@ export function PrototypeScene({
   onDashStart: () => void;
   onTag: () => void;
   roundId: number;
+  jerseyColor: string;
 }) {
   const { camera } = useThree();
   const player = useRef<Group>(null);
@@ -215,26 +218,23 @@ export function PrototypeScene({
         desiredVelocityZ,
         accel,
       );
-      playerData.x = MathUtils.clamp(
+      const clampedPlayer = clampToArena(
         playerData.x + playerData.velocityX * delta,
-        -ARENA_LIMIT,
-        ARENA_LIMIT,
-      );
-      playerData.z = MathUtils.clamp(
         playerData.z + playerData.velocityZ * delta,
-        -ARENA_LIMIT,
-        ARENA_LIMIT,
       );
+      playerData.x = clampedPlayer.x;
+      playerData.z = clampedPlayer.z;
       playerData.dashTime = Math.max(0, playerData.dashTime - delta);
       playerData.dashCooldown = Math.max(0, playerData.dashCooldown - delta);
       playerData.latchTime = Math.max(0, playerData.latchTime - delta);
 
-      if (playerData.latchTime <= 0 && playerData.latchedNpcId !== null) {
-        npcData[playerData.latchedNpcId].isLatched = false;
-        playerData.latchedNpcId = null;
+      if (playerData.latchTime <= 0 && playerData.latchedNpcIds.length > 0) {
+        playerData.latchedNpcIds.forEach((id) => {
+          npcData[id].isLatched = false;
+        });
+        playerData.latchedNpcIds = [];
       }
 
-      let taggedThisFrame = false;
       npcData.forEach((npc, index) => {
         if (npc.taggedCooldown > 0) {
           npc.taggedCooldown = Math.max(0, npc.taggedCooldown - delta);
@@ -283,30 +283,27 @@ export function PrototypeScene({
         }
 
         const speed = npc.speed * npc.fleeBoost;
-        npc.x = MathUtils.clamp(
+        const clampedNpc = clampToArena(
           npc.x + npc.dirX * speed * delta,
-          -ARENA_LIMIT,
-          ARENA_LIMIT,
-        );
-        npc.z = MathUtils.clamp(
           npc.z + npc.dirZ * speed * delta,
-          -ARENA_LIMIT,
-          ARENA_LIMIT,
         );
+        npc.x = clampedNpc.x;
+        npc.z = clampedNpc.z;
 
         npcActions.current[index] = speed > 1.5 ? 'run' : 'idle';
 
-        if (!taggedThisFrame && playerData.dashTime > 0) {
+        if (
+          playerData.latchedNpcIds.length < MAX_SIMULTANEOUS_LATCHES &&
+          playerData.dashTime > 0
+        ) {
           const postMoveDistance = Math.hypot(
             npc.x - playerData.x,
             npc.z - playerData.z,
           );
           if (postMoveDistance < TAG_RADIUS) {
-            taggedThisFrame = true;
             onTag();
-            playerData.dashTime = 0;
             playerData.latchTime = LATCH_DURATION;
-            playerData.latchedNpcId = index;
+            playerData.latchedNpcIds.push(index);
             playerData.velocityX = 0;
             playerData.velocityZ = 0;
             npc.isLatched = true;
@@ -317,15 +314,29 @@ export function PrototypeScene({
             cameraShakeDirX.current = playerData.facingX;
             cameraShakeDirZ.current = playerData.facingZ;
             spawnBurst(burstStates.current, npc.x, npc.z, index);
+
+            if (playerData.latchedNpcIds.length >= MAX_SIMULTANEOUS_LATCHES) {
+              playerData.dashTime = 0;
+            }
           }
         }
       });
 
-      if (playerData.latchedNpcId !== null) {
-        const latchedNpc = npcData[playerData.latchedNpcId];
+      if (
+        playerData.latchedNpcIds.length > 0 &&
+        playerData.dashTime <= 0
+      ) {
+        let sumX = 0;
+        let sumZ = 0;
+        playerData.latchedNpcIds.forEach((id) => {
+          sumX += npcData[id].x;
+          sumZ += npcData[id].z;
+        });
+        const avgX = sumX / playerData.latchedNpcIds.length;
+        const avgZ = sumZ / playerData.latchedNpcIds.length;
         const latchOffset = 0.7;
-        const targetX = latchedNpc.x - playerData.facingX * latchOffset;
-        const targetZ = latchedNpc.z - playerData.facingZ * latchOffset;
+        const targetX = avgX - playerData.facingX * latchOffset;
+        const targetZ = avgZ - playerData.facingZ * latchOffset;
         playerData.x = MathUtils.lerp(playerData.x, targetX, 0.42);
         playerData.z = MathUtils.lerp(playerData.z, targetZ, 0.42);
       }
@@ -490,13 +501,14 @@ export function PrototypeScene({
           <PugCharacter
             isPlayer
             actionRef={playerAction}
-            modelUrl="/assets/models/pugMeshy.glb"
+            modelUrl="/assets/models/pugMeshyJersey.glb"
             bodyScale={500}
             palette={{
               bodyColor: '#d9b58d',
               headColor: '#39211a',
               accentColor: '#ff7d8e',
               accessoryColor: '#ff6a86',
+              jerseyColor,
             }}
           />
         </group>
@@ -590,10 +602,19 @@ function createPlayerState(): PlayerState {
     dashTime: 0,
     dashCooldown: 0,
     latchTime: 0,
-    latchedNpcId: null,
+    latchedNpcIds: [],
     bob: 0,
     dashRequestedAt: -1000,
   };
+}
+
+function clampToArena(x: number, z: number): { x: number; z: number } {
+  const dist = Math.hypot(x, z);
+  if (dist <= ARENA_LIMIT) {
+    return { x, z };
+  }
+  const k = ARENA_LIMIT / dist;
+  return { x: x * k, z: z * k };
 }
 
 function createNpcState(index: number, roundSeed: number): NpcState {

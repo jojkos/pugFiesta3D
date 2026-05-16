@@ -1,5 +1,5 @@
 import { useAnimations, useGLTF } from '@react-three/drei';
-import { useFrame, type ThreeElements } from '@react-three/fiber';
+import { useFrame, useThree, type ThreeElements } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import {
   AnimationAction,
@@ -21,6 +21,7 @@ type CharacterPalette = {
   headColor: string;
   accentColor: string;
   accessoryColor?: string;
+  jerseyColor?: string;
 };
 
 type PugModelProps = ThreeElements['group'] & {
@@ -85,6 +86,7 @@ export function PugCharacter({
   const host = useRef<Group>(null);
   const root = useRef<Group>(null);
   const { scene, animations } = useGLTF(modelUrl);
+  const { scene: rootScene } = useThree();
   const clonedScene = useMemo(() => {
     const nextScene = clone(scene);
 
@@ -115,6 +117,9 @@ export function PugCharacter({
         nextMaterial.color.set(palette.bodyColor);
       } else if (materialName.includes('brown')) {
         nextMaterial.color.set(palette.headColor);
+      } else if (materialName === 'jersey') {
+        nextMaterial.emissive.copy(nextMaterial.color);
+        nextMaterial.emissiveIntensity = 1;
       } else if (totalMaterials === 1) {
         nextMaterial.color.set(palette.bodyColor);
       }
@@ -129,8 +134,24 @@ export function PugCharacter({
     return nextScene;
   }, [palette.bodyColor, palette.headColor, scene, isPlayer]);
 
+  useEffect(() => {
+    if (!isPlayer || !palette.jerseyColor) {
+      return;
+    }
+    const target = palette.jerseyColor;
+    rootScene.traverse((object) => {
+      if (
+        object instanceof Mesh &&
+        object.material instanceof MeshStandardMaterial &&
+        object.material.name === 'Jersey'
+      ) {
+        object.material.color.set(target);
+        object.material.emissive.set(target);
+      }
+    });
+  }, [palette.jerseyColor, isPlayer, rootScene]);
+
   const { mixer } = useAnimations(animations, root);
-  const accessoryColor = palette.accessoryColor ?? palette.accentColor;
   const actions = useRef<ActionMap>({});
   const currentAction = useRef<CharacterAction>('idle');
   const proceduralPhase = useRef(((npcIndex ?? 0) * 1.37) % (Math.PI * 2));
@@ -297,27 +318,10 @@ export function PugCharacter({
         <group ref={root} scale={bodyScale}>
           <primitive object={clonedScene} />
         </group>
-
-        {isPlayer ? null : (
-          <group position={[0.04, 1.04, 0.02]}>
-            <mesh castShadow rotation={[0.2, 0.1, 0]}>
-              <sphereGeometry args={[0.08, 10, 10]} />
-              <meshStandardMaterial color={accessoryColor} roughness={0.9} />
-            </mesh>
-            <mesh castShadow position={[0.1, 0.06, 0]}>
-              <sphereGeometry args={[0.06, 10, 10]} />
-              <meshStandardMaterial color="#ffd971" roughness={0.9} />
-            </mesh>
-            <mesh castShadow position={[-0.06, 0.05, 0.04]}>
-              <sphereGeometry args={[0.05, 10, 10]} />
-              <meshStandardMaterial color="#fff2f5" roughness={0.9} />
-            </mesh>
-          </group>
-        )}
       </group>
     </group>
   );
 }
 
 useGLTF.preload('/assets/models/pug-quaternius.glb');
-useGLTF.preload('/assets/models/pugMeshy.glb');
+useGLTF.preload('/assets/models/pugMeshyJersey.glb');
