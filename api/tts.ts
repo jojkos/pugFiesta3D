@@ -88,9 +88,17 @@ export default async function handler(req: Request): Promise<Response> {
   );
 
   if (!upstream.ok || !upstream.body) {
-    return new Response('Upstream error', {
-      status: upstream.status === 401 ? 502 : upstream.status,
-      headers: cors,
+    const errorBody = await upstream.text().catch(() => '');
+    console.error('[tts] upstream error', {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      body: errorBody.slice(0, 500),
+      voiceId,
+      lang,
+    });
+    return new Response(`Upstream ${upstream.status}: ${errorBody.slice(0, 200)}`, {
+      status: upstream.status,
+      headers: { ...cors, 'Content-Type': 'text/plain;charset=utf-8' },
     });
   }
 
