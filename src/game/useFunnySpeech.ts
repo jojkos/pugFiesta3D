@@ -37,11 +37,9 @@ export function isVoiceInLang(voiceId: string, lang: Lang): boolean {
 
 export const DEFAULT_VOICE_ID = defaultVoiceForLang(DEFAULT_LANG);
 
-const ENDPOINT = 'https://api.elevenlabs.io/v1/text-to-speech';
-const MODEL_ID = 'eleven_flash_v2_5';
+const PROXY_URL =
+  (import.meta.env.VITE_TTS_PROXY_URL as string | undefined) ?? '/api/tts';
 const CACHE_NAME = 'pug-fiesta-voice-v1';
-
-const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined;
 
 const memoryCache = new Map<string, ArrayBuffer>();
 const inflight = new Map<string, Promise<ArrayBuffer | null>>();
@@ -50,22 +48,35 @@ function cacheUrl(voiceId: string, text: string) {
   return `https://pug-fiesta.local/voice/${voiceId}/${encodeURIComponent(text)}`;
 }
 
+const LANG_CODE: Record<Lang, string> = {
+  cs: 'cs',
+  en: 'en',
+};
+
+const BROWSER_LANG: Record<Lang, string> = {
+  cs: 'cs-CZ',
+  en: 'en-US',
+};
+
 async function fetchPhrase(
   voiceId: string,
   text: string,
+  lang: Lang,
 ): Promise<ArrayBuffer | null> {
-  const key = `${voiceId}:${text}`;
+  const key = `${voiceId}:${lang}:${text}`;
   const cached = memoryCache.get(key);
   if (cached) return cached;
 
   const pending = inflight.get(key);
   if (pending !== undefined) return pending;
 
+  const cacheUrlKey = `${cacheUrl(voiceId, text)}?lang=${lang}`;
+
   const promise = (async () => {
     if ('caches' in globalThis) {
       try {
         const cache = await caches.open(CACHE_NAME);
-        const hit = await cache.match(cacheUrl(voiceId, text));
+        const hit = await cache.match(cacheUrlKey);
         if (hit) {
           const buf = await hit.arrayBuffer();
           memoryCache.set(key, buf);
@@ -76,20 +87,14 @@ async function fetchPhrase(
       }
     }
 
-    if (!apiKey) return null;
-
-    const res = await fetch(
-      `${ENDPOINT}/${voiceId}?output_format=mp3_44100_128`,
-      {
-        method: 'POST',
-        headers: {
-          'xi-api-key': apiKey,
-          'Content-Type': 'application/json',
-          Accept: 'audio/mpeg',
-        },
-        body: JSON.stringify({ text, model_id: MODEL_ID }),
+    const res = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg',
       },
-    );
+      body: JSON.stringify({ voiceId, text, lang: LANG_CODE[lang] }),
+    });
 
     if (!res.ok) return null;
 
@@ -100,7 +105,7 @@ async function fetchPhrase(
       try {
         const cache = await caches.open(CACHE_NAME);
         await cache.put(
-          cacheUrl(voiceId, text),
+          cacheUrlKey,
           new Response(buf.slice(0), {
             headers: { 'Content-Type': 'audio/mpeg' },
           }),
@@ -121,16 +126,19 @@ async function fetchPhrase(
   }
 }
 
-function speakWithBrowser(text: string) {
+function speakWithBrowser(text: string, lang: Lang) {
   if (globalThis.window === undefined || !globalThis.speechSynthesis) return;
   globalThis.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'en-US';
+  const targetLang = BROWSER_LANG[lang];
+  const langPrefix = LANG_CODE[lang];
+  utterance.lang = targetLang;
   utterance.pitch = 1 + (Math.random() - 0.5) * 0.35;
   utterance.rate = 1.08;
   const voices = globalThis.speechSynthesis.getVoices();
   const voice =
-    voices.find((item) => item.lang.startsWith('en')) ?? voices[0];
+    voices.find((item) => item.lang.toLowerCase().startsWith(langPrefix)) ??
+    voices[0];
   if (voice) utterance.voice = voice;
   globalThis.speechSynthesis.speak(utterance);
 }
@@ -138,12 +146,17 @@ function speakWithBrowser(text: string) {
 let currentAudio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
 
-async function playPhrase(voiceId: string, text: string, muted: boolean) {
+async function playPhrase(
+  voiceId: string,
+  text: string,
+  muted: boolean,
+  lang: Lang,
+) {
   if (muted || globalThis.window === undefined) return;
 
-  const buf = await fetchPhrase(voiceId, text).catch(() => null);
+  const buf = await fetchPhrase(voiceId, text, lang).catch(() => null);
   if (!buf) {
-    speakWithBrowser(text);
+    speakWithBrowser(text, lang);
     return;
   }
 
@@ -154,22 +167,23 @@ async function playPhrase(voiceId: string, text: string, muted: boolean) {
   currentUrl = url;
   const audio = new Audio(url);
   currentAudio = audio;
-  audio.play().catch(() => speakWithBrowser(text));
+  audio.play().catch(() => speakWithBrowser(text, lang));
 }
 
 export function playVoiceSample(
   voiceId: string,
   muted: boolean,
   phrase: string,
+  lang: Lang,
 ) {
-  void playPhrase(voiceId, phrase, muted);
+  void playPhrase(voiceId, phrase, muted, lang);
 }
 
-export function useFunnySpeech(muted: boolean, voiceId: string) {
+export function useFunnySpeech(muted: boolean, voiceId: string, lang: Lang) {
   return useCallback(
     (text: string) => {
-      void playPhrase(voiceId, text, muted);
+      void playPhrase(voiceId, text, muted, lang);
     },
-    [muted, voiceId],
+    [muted, voiceId, lang],
   );
 }

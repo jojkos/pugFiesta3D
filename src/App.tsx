@@ -22,6 +22,7 @@ import {
   pickRandomTagPhrase,
   type Lang,
 } from './game/i18n';
+import { useLeaderboard } from './game/useLeaderboard';
 import type { AnalogInput, GameMode, KeyboardState } from './game/types';
 
 function App() {
@@ -52,7 +53,7 @@ function App() {
     if (stored && isVoiceInLang(stored, lang)) return stored;
     return fallback;
   });
-  const speakPhrase = useFunnySpeech(isMuted, voiceId);
+  const speakPhrase = useFunnySpeech(isMuted, voiceId, lang);
   const [mode, setMode] = useState<GameMode>('menu');
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(() => {
@@ -62,6 +63,12 @@ function App() {
 
     return Number(window.localStorage.getItem('pug-fiesta-best-score') ?? 0) || 0;
   });
+  const [jerseyColor, setJerseyColor] = useState(() => {
+    if (typeof window === 'undefined') {
+      return '#5b3aa3';
+    }
+    return window.localStorage.getItem('pug-fiesta-jersey-color') ?? '#5b3aa3';
+  });
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
   const timeLeftRef = useRef(ROUND_DURATION);
   const [roundId, setRoundId] = useState(0);
@@ -70,9 +77,16 @@ function App() {
   const [tagPhrase, setTagPhrase] = useState('');
   const [countdown, setCountdown] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
-  const [maxStreak, setMaxStreak] = useState(0);
   const lastTagAtRef = useRef(0);
   const [joystick, setJoystick] = useState<AnalogInput>({ x: 0, y: 0 });
+  const [submittedEntryId, setSubmittedEntryId] = useState<string | null>(null);
+  const {
+    entries: leaderboardEntries,
+    loading: leaderboardLoading,
+    error: leaderboardError,
+    submit: submitLeaderboard,
+    refresh: refreshLeaderboard,
+  } = useLeaderboard(10);
   const [keys, setKeys] = useState<KeyboardState>({
     up: false,
     down: false,
@@ -151,7 +165,6 @@ function App() {
 
     const timeoutId = window.setTimeout(() => {
       setTagBurst(0);
-      setTagPhrase('');
     }, 650);
 
     return () => window.clearTimeout(timeoutId);
@@ -217,7 +230,9 @@ function App() {
 
       if (remaining <= 0) {
         playRoundEndRef.current();
+        setSubmittedEntryId(null);
         setMode('gameOver');
+        void refreshLeaderboard();
         return;
       }
 
@@ -244,7 +259,6 @@ function App() {
     playRoundStart();
     setScore(0);
     setStreak(0);
-    setMaxStreak(0);
     setTimeLeft(ROUND_DURATION);
     setJoystick({ x: 0, y: 0 });
     setDashNonce(0);
@@ -285,6 +299,7 @@ function App() {
           <PrototypeScene
             dashNonce={dashNonce}
             isPlaying={mode === 'playing' && !paused && countdown === null}
+            jerseyColor={jerseyColor}
             moveInput={worldMoveInput}
             onDashStart={playDash}
             onTag={() => {
@@ -310,7 +325,6 @@ function App() {
                 return nextScore;
               });
               setStreak(nextStreak);
-              setMaxStreak((value) => Math.max(value, nextStreak));
               setTagPhrase(phrase);
               setTagBurst(Date.now());
             }}
@@ -322,17 +336,28 @@ function App() {
           bestScore={bestScore}
           countdown={countdown}
           isMuted={isMuted}
-          maxStreak={maxStreak}
+          jerseyColor={jerseyColor}
           mode={mode}
+          onJerseyColorChange={(color) => {
+            setJerseyColor(color);
+            if (typeof window !== 'undefined') {
+              window.localStorage.setItem('pug-fiesta-jersey-color', color);
+            }
+          }}
           onStartRound={startRound}
           onToggleMute={() => setIsMuted((value) => !value)}
           onTogglePause={() => setPaused((value) => !value)}
+          onQuitToMenu={() => {
+            setPaused(false);
+            setCountdown(null);
+            setMode('menu');
+          }}
           onVoiceChange={(next) => {
             setVoiceId(next);
             if (globalThis.window !== undefined) {
               globalThis.localStorage.setItem('pug-fiesta-voice-id', next);
             }
-            playVoiceSample(next, isMuted, strings.tagPhrases[0]);
+            playVoiceSample(next, isMuted, strings.tagPhrases[0], lang);
           }}
           voiceId={voiceId}
           lang={lang}
@@ -356,10 +381,18 @@ function App() {
           voiceCharacters={getVoicesForLang(lang)}
           paused={paused}
           score={score}
-          streak={streak}
           tagBurst={tagBurst}
           tagPhrase={tagPhrase}
           timeLeft={timeLeft}
+          leaderboardEntries={leaderboardEntries}
+          leaderboardLoading={leaderboardLoading}
+          leaderboardError={leaderboardError}
+          highlightedEntryId={submittedEntryId}
+          onSubmitScore={async (name) => {
+            if (score <= 0) return;
+            const entry = await submitLeaderboard({ name, score });
+            if (entry) setSubmittedEntryId(entry.id);
+          }}
         />
 
         <TouchControls
