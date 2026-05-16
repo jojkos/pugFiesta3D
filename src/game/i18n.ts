@@ -19,7 +19,7 @@ const cs = {
   defaultTagBanner: 'NAVRTÁNO!',
   menu: {
     eyebrow: 'mopsí orgie',
-    title: 'Pug Fiesta',
+    title: 'Pug Banger Fiesta',
     lede: 'Naval čumák, vystřel kyčle a nažeň jim to. Kdo váhá, čuchá!',
     grid: {
       desktopLabel: 'Počítač',
@@ -83,7 +83,7 @@ const cs = {
   mainMenu: 'Hlavní menu',
   rotate: {
     title: 'Otoč zařízení',
-    body: 'Pug Fiesta jede naležato. Otoč mobil bokem a běž do toho.',
+    body: 'Pug Banger Fiesta jede naležato. Otoč mobil bokem a běž do toho.',
   },
   tagPhrases: [
     'štěká, ale nekouše',
@@ -122,7 +122,7 @@ const en: typeof cs = {
   defaultTagBanner: 'LATCHED!',
   menu: {
     eyebrow: 'pug orgy arcade',
-    title: 'Pug Fiesta',
+    title: 'Pug Banger Fiesta',
     lede: 'Stick that snout out, time the pounce, hump the leaderboard.',
     grid: {
       desktopLabel: 'Desktop',
@@ -186,7 +186,7 @@ const en: typeof cs = {
   mainMenu: 'Main menu',
   rotate: {
     title: 'Rotate your device',
-    body: 'Pug Fiesta plays best in landscape. Turn your phone sideways to start chasing.',
+    body: 'Pug Banger Fiesta plays best in landscape. Turn your phone sideways to start chasing.',
   },
   tagPhrases: [
     'Sit, stay... slay',

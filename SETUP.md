@@ -1,19 +1,23 @@
-# Pug Fiesta — deploy setup
+# Pug Banger Fiesta — deploy setup
 
-## Frontend env vars (Vercel project settings → Environment Variables)
+## Env vars (Vercel project settings → Environment Variables)
 
-| Name | Scope | Notes |
-|---|---|---|
-| `VITE_SUPABASE_URL` | All | `https://xlwwkcpvnrpdptzgsxsu.supabase.co` |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | All | Supabase → Project Settings → API → `publishable` (anon) key. Safe to expose. |
-| `VITE_TTS_PROXY_URL` | Optional | Override the `/api/tts` URL. Leave unset in production. |
-
-## Server-only env vars (Vercel project settings → Environment Variables, NOT in committed `.env`)
+All variables are frontend-only and shipped in the browser bundle.
 
 | Name | Notes |
 |---|---|
-| `ELEVENLABS_API_KEY` | The real ElevenLabs key. Lives only on the server. **Rotate the old key that was in `.env` — it has been exposed.** |
-| `TTS_ALLOWED_ORIGINS` | Optional, comma-separated. e.g. `https://pug-fiesta.vercel.app,http://localhost:5173`. If empty, `*` is used. |
+| `VITE_SUPABASE_URL` | `https://xlwwkcpvnrpdptzgsxsu.supabase.co` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API → `publishable` (anon) key. Safe to expose by design. |
+| `VITE_ELEVENLABS_API_KEY` | ElevenLabs key, called directly from the browser. See trade-off note below. |
+
+### Why the ElevenLabs key lives on the client
+
+ElevenLabs blocks Free / cheaper-tier traffic coming from datacenter IPs (Vercel functions, Cloudflare workers, etc.) with a `detected_unusual_activity` error. The only way to keep using the cheap plan is to let the user's residential browser IP call ElevenLabs directly, which means the key is visible in the JS bundle.
+
+Mitigations:
+- Keep the account on the cheapest plan so abuse caps quota damage.
+- Rotate the key if you see suspicious usage in the ElevenLabs dashboard.
+- If you ever upgrade to a paid plan that lifts the datacenter-IP block, move the call back to a Vercel function (see git history for `api/tts.ts`).
 
 ## Supabase setup
 
@@ -41,11 +45,7 @@ create policy "leaderboard insert"
 
 ```sh
 cp .env.example .env
-# fill in VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
+# fill in VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, VITE_ELEVENLABS_API_KEY
 npm install
 npm run dev
 ```
-
-For local TTS during dev you have two options:
-1. Run `vercel dev` so `/api/tts` is served locally — needs `ELEVENLABS_API_KEY` in your local env.
-2. Set `VITE_TTS_PROXY_URL=https://your-app.vercel.app/api/tts` in `.env` to use the deployed proxy.

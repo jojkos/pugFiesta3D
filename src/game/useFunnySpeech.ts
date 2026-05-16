@@ -37,15 +37,22 @@ export function isVoiceInLang(voiceId: string, lang: Lang): boolean {
 
 export const DEFAULT_VOICE_ID = defaultVoiceForLang(DEFAULT_LANG);
 
-const PROXY_URL =
-  (import.meta.env.VITE_TTS_PROXY_URL as string | undefined) ?? '/api/tts';
-const CACHE_NAME = 'pug-fiesta-voice-v1';
+// WARNING: client-side ElevenLabs key. This is exposed in the JS bundle and
+// can be scraped/abused. Acceptable trade-off because ElevenLabs blocks free
+// tier traffic from datacenter IPs (Vercel functions), so the residential
+// browser IP is needed. Rotate the key if abuse appears, and keep this on the
+// cheapest plan.
+const ELEVENLABS_ENDPOINT = 'https://api.elevenlabs.io/v1/text-to-speech';
+const MODEL_ID = 'eleven_flash_v2_5';
+const CACHE_NAME = 'pug-banger-fiesta-voice-v1';
+
+const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined;
 
 const memoryCache = new Map<string, ArrayBuffer>();
 const inflight = new Map<string, Promise<ArrayBuffer | null>>();
 
 function cacheUrl(voiceId: string, text: string) {
-  return `https://pug-fiesta.local/voice/${voiceId}/${encodeURIComponent(text)}`;
+  return `https://pug-banger-fiesta.local/voice/${voiceId}/${encodeURIComponent(text)}`;
 }
 
 const LANG_CODE: Record<Lang, string> = {
@@ -87,14 +94,24 @@ async function fetchPhrase(
       }
     }
 
-    const res = await fetch(PROXY_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'audio/mpeg',
+    if (!apiKey) return null;
+
+    const res = await fetch(
+      `${ELEVENLABS_ENDPOINT}/${voiceId}?output_format=mp3_44100_128`,
+      {
+        method: 'POST',
+        headers: {
+          'xi-api-key': apiKey,
+          'Content-Type': 'application/json',
+          Accept: 'audio/mpeg',
+        },
+        body: JSON.stringify({
+          text,
+          model_id: MODEL_ID,
+          language_code: LANG_CODE[lang],
+        }),
       },
-      body: JSON.stringify({ voiceId, text, lang: LANG_CODE[lang] }),
-    });
+    );
 
     if (!res.ok) return null;
 
