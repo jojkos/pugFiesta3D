@@ -16,6 +16,11 @@ const LANG_LABELS: Record<Lang, string> = {
   en: 'English',
 };
 
+const CHIP_LABELS: Record<Lang, { lang: string; jersey: string; voice: string }> = {
+  cs: { lang: 'jazyk', jersey: 'dres', voice: 'hlas' },
+  en: { lang: 'lang', jersey: 'jersey', voice: 'voice' },
+};
+
 const JERSEY_PRESETS: Readonly<{ hex: string; label: string }[]> = [
   { hex: '#5b3aa3', label: 'Indigo' },
   { hex: '#ff7d8e', label: 'Pink' },
@@ -281,14 +286,17 @@ export function Overlay({
               />
               <div className="menu-info">
                 <p className="menu-eye">{strings.menu.eyebrow}</p>
-                <h2 className="menu-title">{strings.menu.title}</h2>
+                <h2 className="menu-title">
+                  Pug Banger<br />
+                  <em>Fiesta</em>
+                </h2>
                 <p className="menu-lede">{strings.menu.lede}</p>
               </div>
             </div>
 
             <div className="menu-cust">
               <ChipPopover
-                label={strings.menu.languageLabel}
+                label={CHIP_LABELS[lang].lang}
                 value={langLabel}
                 leading={<span className="flag">{langFlag}</span>}
               >
@@ -312,7 +320,7 @@ export function Overlay({
               </ChipPopover>
 
               <ChipPopover
-                label={strings.menu.jerseyColor}
+                label={CHIP_LABELS[lang].jersey}
                 value={jerseyLabel}
                 leading={<span className="dot" style={{ background: jerseyColor }} />}
               >
@@ -353,7 +361,7 @@ export function Overlay({
                 )}
               </ChipPopover>
 
-              <ChipPopover label={strings.menu.voiceLabel} value={voiceLabel}>
+              <ChipPopover label={CHIP_LABELS[lang].voice} value={voiceLabel}>
                 {(close) => (
                   <>
                     {voiceCharacters.map((character) => (

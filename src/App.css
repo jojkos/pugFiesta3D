@@ -259,8 +259,7 @@ body {
   container-type: inline-size;
   position: relative;
   width: min(520px, 100%);
-  max-height: calc(100dvh - 28px);
-  overflow-y: auto;
+  overflow: hidden;
   padding: 22px 26px 20px;
   background: var(--paper);
   border: 1px solid var(--line);
@@ -344,9 +343,15 @@ body {
   margin: 4px 0 6px;
   font-family: var(--display-font);
   font-size: 36px;
-  line-height: 0.96;
+  line-height: 0.94;
   letter-spacing: -0.025em;
   font-weight: 800;
+}
+
+.menu-title em {
+  font-style: italic;
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .menu-lede {
@@ -599,9 +604,11 @@ body {
   padding: 0;
 }
 
-/* Portrait stack */
+/* Portrait stack — design uses 480 but we drop slightly so the landscape
+   layout kicks in for narrow dev preview panes while real phone portraits
+   (≈412px viewport → ≈384px modal) still stack. */
 
-@container (max-width: 480px) {
+@container (max-width: 420px) {
   .menu {
     padding: 20px 20px 18px;
   }
@@ -667,8 +674,6 @@ body {
 .lb {
   container-type: inline-size;
   width: min(520px, 100%);
-  max-height: calc(100dvh - 28px);
-  overflow-y: auto;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius-modal);
@@ -947,8 +952,6 @@ body {
 .res {
   container-type: inline-size;
   width: min(720px, 100%);
-  max-height: calc(100dvh - 28px);
-  overflow-y: auto;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius-modal);
