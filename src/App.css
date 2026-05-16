@@ -312,23 +312,18 @@ body {
 }
 
 .menu-logo {
-  width: 92px;
-  height: 92px;
+  width: 140px;
+  height: auto;
   flex: 0 0 auto;
-  border-radius: 50%;
-  background-color: var(--pink);
-  background-size: 118%;
-  background-position: center;
-  background-repeat: no-repeat;
-  border: 3px solid #2a1713;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-  transform: rotate(-3deg);
-  animation: menuLogoPulse 3.4s ease-in-out infinite;
+  filter: drop-shadow(0 8px 18px rgba(91, 58, 163, 0.18));
+  user-select: none;
+  pointer-events: none;
+  animation: menuLogoPulse 2.6s ease-in-out infinite;
 }
 
 @keyframes menuLogoPulse {
-  0%, 100% { transform: rotate(-3deg) scale(1); }
-  50% { transform: rotate(1deg) scale(1.04); }
+  0%, 100% { transform: scale(1) rotate(-1deg); }
+  50% { transform: scale(1.04) rotate(1deg); }
 }
 
 .menu-info {
@@ -616,8 +611,7 @@ body {
     gap: 8px;
   }
   .menu-logo {
-    width: 84px;
-    height: 84px;
+    width: 128px;
   }
   .menu-title {
     font-size: 30px;
@@ -1506,8 +1500,7 @@ body {
     font-size: 28px;
   }
   .menu-logo {
-    width: 74px;
-    height: 74px;
+    width: 100px;
   }
   .menu-actions {
     margin-top: 10px;
