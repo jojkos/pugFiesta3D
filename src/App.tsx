@@ -64,9 +64,9 @@ function App() {
   });
   const [jerseyColor, setJerseyColor] = useState(() => {
     if (typeof window === 'undefined') {
-      return '#5b3aa3';
+      return '#7cc7ff';
     }
-    return window.localStorage.getItem('pug-banger-fiesta-jersey-color') ?? '#5b3aa3';
+    return window.localStorage.getItem('pug-banger-fiesta-jersey-color') ?? '#7cc7ff';
   });
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
   const timeLeftRef = useRef(ROUND_DURATION);
