@@ -57,6 +57,7 @@ export function PrototypeScene({
   onTag,
   roundId,
   jerseyColor,
+  jerseyAccentColor,
 }: {
   isPlaying: boolean;
   moveInput: AnalogInput;
@@ -65,6 +66,7 @@ export function PrototypeScene({
   onTag: (chainSize: number) => void;
   roundId: number;
   jerseyColor: string;
+  jerseyAccentColor: string;
 }) {
   const { camera } = useThree();
   const player = useRef<Group>(null);
@@ -509,6 +511,7 @@ export function PrototypeScene({
               accentColor: '#ff7d8e',
               accessoryColor: '#ff6a86',
               jerseyColor,
+              jerseyAccentColor,
             }}
           />
         </group>

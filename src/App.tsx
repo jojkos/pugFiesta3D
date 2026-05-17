@@ -68,6 +68,16 @@ function App() {
     }
     return window.localStorage.getItem('pug-banger-fiesta-jersey-color') ?? '#f5f1ea';
   });
+  const [jerseyAccentColor, setJerseyAccentColor] = useState(() => {
+    if (typeof window === 'undefined') {
+      return '#f5f1ea';
+    }
+    return (
+      window.localStorage.getItem('pug-banger-fiesta-jersey-accent-color') ??
+      window.localStorage.getItem('pug-banger-fiesta-jersey-color') ??
+      '#f5f1ea'
+    );
+  });
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
   const timeLeftRef = useRef(ROUND_DURATION);
   const [roundId, setRoundId] = useState(0);
@@ -288,6 +298,7 @@ function App() {
             dashNonce={dashNonce}
             isPlaying={mode === 'playing' && !paused && countdown === null}
             jerseyColor={jerseyColor}
+            jerseyAccentColor={jerseyAccentColor}
             moveInput={worldMoveInput}
             onDashStart={playDash}
             onTag={(chainSize) => {
@@ -316,11 +327,18 @@ function App() {
           countdown={countdown}
           isMuted={isMuted}
           jerseyColor={jerseyColor}
+          jerseyAccentColor={jerseyAccentColor}
           mode={mode}
           onJerseyColorChange={(color) => {
             setJerseyColor(color);
             if (typeof window !== 'undefined') {
               window.localStorage.setItem('pug-banger-fiesta-jersey-color', color);
+            }
+          }}
+          onJerseyAccentColorChange={(color) => {
+            setJerseyAccentColor(color);
+            if (typeof window !== 'undefined') {
+              window.localStorage.setItem('pug-banger-fiesta-jersey-accent-color', color);
             }
           }}
           onStartRound={startRound}
