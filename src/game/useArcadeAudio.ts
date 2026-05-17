@@ -77,7 +77,7 @@ export function useArcadeAudio(muted: boolean) {
       fxBus.connect(master);
 
       const musicBus = context.createGain();
-      musicBus.gain.value = 0.32;
+      musicBus.gain.value = 0.55;
       musicBus.connect(master);
 
       const reverb = context.createConvolver();
@@ -325,36 +325,6 @@ export function useArcadeAudio(muted: boolean) {
     });
   }, [playTone]);
 
-  const playStreakPing = useCallback(
-    (level: number) => {
-      const base = 660 + Math.min(level, 8) * 80;
-      void playTone(
-        {
-          frequency: base,
-          endFrequency: base * 1.4,
-          duration: 0.16,
-          gain: 0.03,
-          type: 'sine',
-          attack: 0.005,
-        },
-        'fx',
-        0.35,
-      );
-      void playTone(
-        {
-          frequency: base * 1.5,
-          duration: 0.12,
-          gain: 0.018,
-          type: 'triangle',
-          attack: 0.005,
-        },
-        'fx',
-        0.35,
-      );
-    },
-    [playTone],
-  );
-
   const stopMusic = useCallback(() => {
     if (musicTimerRef.current !== null) {
       globalThis.clearInterval(musicTimerRef.current);
@@ -429,7 +399,6 @@ export function useArcadeAudio(muted: boolean) {
       playRoundStart: () => guard(playRoundStart),
       playRoundEnd: () => guard(playRoundEnd),
       playCountdownTick: () => guard(playCountdownTick),
-      playStreakPing: (level: number) => guard(() => playStreakPing(level)),
       setRoundLoopActive,
     }),
     [
@@ -439,7 +408,6 @@ export function useArcadeAudio(muted: boolean) {
       playRoundStart,
       playRoundEnd,
       playCountdownTick,
-      playStreakPing,
       setRoundLoopActive,
     ],
   );

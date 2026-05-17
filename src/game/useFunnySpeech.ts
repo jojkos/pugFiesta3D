@@ -162,6 +162,7 @@ function speakWithBrowser(text: string, lang: Lang) {
 
 let currentAudio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
+let playToken = 0;
 
 async function playPhrase(
   voiceId: string,
@@ -171,20 +172,46 @@ async function playPhrase(
 ) {
   if (muted || globalThis.window === undefined) return;
 
+  // Each call gets a token. If a newer call comes in while we're fetching
+  // or playing, we drop this one silently — otherwise we'd either double up
+  // or fire the browser TTS fallback for a stale phrase when our audio is
+  // paused by the next call (AbortError on .play()).
+  const token = ++playToken;
+
   const buf = await fetchPhrase(voiceId, text, lang).catch(() => null);
+
+  if (token !== playToken) return;
+
   if (!buf) {
     speakWithBrowser(text, lang);
     return;
   }
 
-  if (currentUrl) URL.revokeObjectURL(currentUrl);
-  currentAudio?.pause();
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  if (currentUrl) {
+    URL.revokeObjectURL(currentUrl);
+    currentUrl = null;
+  }
 
   const url = URL.createObjectURL(new Blob([buf], { type: 'audio/mpeg' }));
   currentUrl = url;
   const audio = new Audio(url);
   currentAudio = audio;
-  audio.play().catch(() => speakWithBrowser(text, lang));
+
+  try {
+    await audio.play();
+  } catch (err) {
+    // AbortError = we intentionally paused this audio to start a newer one.
+    // Token mismatch = same idea: a newer call took over. Either way, do not
+    // fall back to browser TTS — the newer call is handling it.
+    const aborted = err instanceof DOMException && err.name === 'AbortError';
+    if (!aborted && token === playToken) {
+      speakWithBrowser(text, lang);
+    }
+  }
 }
 
 export function playVoiceSample(

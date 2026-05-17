@@ -34,7 +34,6 @@ function App() {
     playRoundStart,
     playRoundEnd,
     playCountdownTick,
-    playStreakPing,
     setRoundLoopActive,
   } = useArcadeAudio(isMuted);
   const [lang, setLang] = useState<Lang>(() => {
@@ -73,11 +72,7 @@ function App() {
   const timeLeftRef = useRef(ROUND_DURATION);
   const [roundId, setRoundId] = useState(0);
   const [dashNonce, setDashNonce] = useState(0);
-  const [tagBurst, setTagBurst] = useState(0);
-  const [tagPhrase, setTagPhrase] = useState('');
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [streak, setStreak] = useState(0);
-  const lastTagAtRef = useRef(0);
   const [joystick, setJoystick] = useState<AnalogInput>({ x: 0, y: 0 });
   const [submittedEntryId, setSubmittedEntryId] = useState<string | null>(null);
   const {
@@ -159,18 +154,6 @@ function App() {
   }, [countdown, mode, paused]);
 
   useEffect(() => {
-    if (tagBurst === 0) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setTagBurst(0);
-    }, 650);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [tagBurst]);
-
-  useEffect(() => {
     timeLeftRef.current = timeLeft;
   }, [timeLeft]);
 
@@ -207,6 +190,11 @@ function App() {
     playRoundEndRef.current = playRoundEnd;
   }, [playRoundEnd]);
 
+  const playCountdownTickRef = useRef(playCountdownTick);
+  useEffect(() => {
+    playCountdownTickRef.current = playCountdownTick;
+  }, [playCountdownTick]);
+
   useEffect(() => {
     if (mode !== 'playing' || paused || countdown !== null) {
       return;
@@ -226,6 +214,9 @@ function App() {
       if (nextDisplayedSecond !== lastDisplayedSecond) {
         lastDisplayedSecond = nextDisplayedSecond;
         setTimeLeft(remaining);
+        if (nextDisplayedSecond >= 1 && nextDisplayedSecond <= 5) {
+          playCountdownTickRef.current();
+        }
       }
 
       if (remaining <= 0) {
@@ -258,12 +249,9 @@ function App() {
     requestImmersiveMode();
     playRoundStart();
     setScore(0);
-    setStreak(0);
     setTimeLeft(ROUND_DURATION);
     setJoystick({ x: 0, y: 0 });
     setDashNonce(0);
-    setTagBurst(0);
-    setTagPhrase('');
     setCountdown(3);
     setPaused(false);
     setRoundId((value) => value + 1);
@@ -305,14 +293,7 @@ function App() {
             onTag={(chainSize) => {
               const multiPhrase = strings.multiTagPhrases[chainSize];
               const phrase = multiPhrase ?? pickRandomTagPhrase(lang);
-              const now = performance.now();
-              const nextStreak =
-                now - lastTagAtRef.current < 3200 ? streak + 1 : 1;
-              lastTagAtRef.current = now;
               playTag();
-              if (chainSize >= 2 || nextStreak >= 2) {
-                playStreakPing(chainSize >= 2 ? chainSize + 1 : nextStreak);
-              }
               speakPhrase(phrase);
               setScore((value) => {
                 const nextScore = value + 1;
@@ -325,9 +306,6 @@ function App() {
                 }
                 return nextScore;
               });
-              setStreak(nextStreak);
-              setTagPhrase(phrase);
-              setTagBurst(Date.now());
             }}
             roundId={roundId}
           />
@@ -382,8 +360,6 @@ function App() {
           voiceCharacters={getVoicesForLang(lang)}
           paused={paused}
           score={score}
-          tagBurst={tagBurst}
-          tagPhrase={tagPhrase}
           timeLeft={timeLeft}
           leaderboardEntries={leaderboardEntries}
           leaderboardLoading={leaderboardLoading}

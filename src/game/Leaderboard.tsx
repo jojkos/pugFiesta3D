@@ -25,6 +25,8 @@ function formatEntryDate(iso: string, lang: Lang): string {
     day: 'numeric',
     month: 'short',
     year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(date);
 }
 

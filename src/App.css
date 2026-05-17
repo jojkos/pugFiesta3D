@@ -174,58 +174,6 @@ body {
   to { transform: scale(1); opacity: 1; }
 }
 
-/* ─────────── Final rush + tag banners ─────────── */
-
-.rush-banner {
-  position: absolute;
-  left: 50%;
-  bottom: 168px;
-  transform: translateX(-50%);
-  z-index: 24;
-  padding: 9px 18px;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, #ff7a8a 0%, #ff5a55 100%);
-  color: #fff8f0;
-  font-size: 0.84rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  box-shadow: 0 18px 38px rgba(183, 56, 73, 0.28);
-  animation: rushPulse 0.9s ease-in-out infinite alternate;
-  pointer-events: none;
-}
-
-@keyframes rushPulse {
-  from { transform: translateX(-50%) scale(1); }
-  to { transform: translateX(-50%) scale(1.05); }
-}
-
-.tag-banner {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 25;
-  padding: 12px 22px;
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  border: 1px solid rgba(222, 90, 122, 0.22);
-  box-shadow: 0 18px 40px rgba(111, 60, 39, 0.18);
-  color: var(--accent);
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  opacity: 0;
-  transform: translate(-50%, calc(-50% - 8px)) scale(0.92);
-  transition: opacity 180ms ease,
-    transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.tag-banner.is-visible {
-  opacity: 1;
-  transform: translate(-50%, -180%) scale(1);
-}
-
 /* ─────────── Modal backdrop (blurs the live game scene) ─────────── */
 
 .modal-backdrop {
@@ -1777,8 +1725,5 @@ body {
     width: 122px;
     height: 122px;
     font-size: 2.6rem;
-  }
-  .rush-banner {
-    bottom: 142px;
   }
 }
