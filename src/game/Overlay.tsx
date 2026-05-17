@@ -285,7 +285,6 @@ export function Overlay({
               aria-label={strings.help.button}
               title={strings.help.button}
               onClick={() => setHelpOpen(true)}
-              onMouseEnter={() => setHelpOpen(true)}
             >
               ?
             </button>
@@ -431,7 +430,6 @@ export function Overlay({
               <section
                 className="help-panel"
                 onClick={(event) => event.stopPropagation()}
-                onMouseLeave={() => setHelpOpen(false)}
               >
                 <header className="help-panel-head">
                   <h3 className="help-panel-title">{strings.help.title}</h3>
