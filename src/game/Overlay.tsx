@@ -97,8 +97,6 @@ export function Overlay({
   score,
   timeLeft,
   onStartRound,
-  tagBurst,
-  tagPhrase,
   isMuted,
   jerseyColor,
   onJerseyColorChange,
@@ -124,8 +122,6 @@ export function Overlay({
   score: number;
   timeLeft: number;
   onStartRound: () => void;
-  tagBurst: number;
-  tagPhrase: string;
   isMuted: boolean;
   jerseyColor: string;
   onJerseyColorChange: (color: string) => void;
@@ -238,12 +234,6 @@ export function Overlay({
           </div>
         </div>
       )}
-
-      {lowTime && <div className="rush-banner">{strings.finalRush}</div>}
-
-      <div className={`tag-banner ${tagBurst > 0 ? 'is-visible' : ''}`}>
-        {tagPhrase}
-      </div>
 
       {mode === 'menu' && menuLeaderboardOpen && (
         <div className="modal-backdrop is-menu">
@@ -466,10 +456,6 @@ export function Overlay({
                   <div className="help-section help-section-mobile">
                     <h4>{strings.help.mobileHeading}</h4>
                     <p>{strings.help.mobileBody}</p>
-                  </div>
-                  <div className="help-section">
-                    <h4>{strings.help.tipsHeading}</h4>
-                    <p>{strings.help.tipsBody}</p>
                   </div>
                   {isIosWebContext() && (
                     <div className="help-section help-section-ios">
