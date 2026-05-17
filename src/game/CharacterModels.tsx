@@ -118,8 +118,8 @@ export function PugCharacter({
       } else if (materialName.includes('brown')) {
         nextMaterial.color.set(palette.headColor);
       } else if (materialName === 'jersey') {
-        nextMaterial.emissive.copy(nextMaterial.color);
-        nextMaterial.emissiveIntensity = 1;
+        nextMaterial.emissive.set(0x000000);
+        nextMaterial.emissiveIntensity = 0;
       } else if (totalMaterials === 1) {
         nextMaterial.color.set(palette.bodyColor);
       }
@@ -146,7 +146,8 @@ export function PugCharacter({
         object.material.name === 'Jersey'
       ) {
         object.material.color.set(target);
-        object.material.emissive.set(target);
+        object.material.emissive.set(0x000000);
+        object.material.emissiveIntensity = 0;
       }
     });
   }, [palette.jerseyColor, isPlayer, rootScene]);
