@@ -1,0 +1,26 @@
+{
+  "name": "Pug Banger Fiesta",
+  "short_name": "Pug Fiesta",
+  "description": "Low-poly arcade pug chase. Sprint, swerve, pounce, repeat.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#fde6d0",
+  "theme_color": "#ff8e6c",
+  "icons": [
+    {
+      "src": "/assets/images/logo.png",
+      "sizes": "370x370",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/images/logo.png",
+      "sizes": "370x370",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

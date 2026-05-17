@@ -11,7 +11,7 @@ const cs = {
     pause: 'Pauza',
     resume: 'Pokračovat',
     switchLanguage: 'Přepnout do angličtiny',
-    dash: 'SKOK',
+    dash: 'BANG',
   },
   combo: 'combo',
   countdownGo: 'JEDEM!',
@@ -20,7 +20,7 @@ const cs = {
   menu: {
     eyebrow: 'mopsí orgie',
     title: 'Pug Banger Fiesta',
-    lede: 'Naval čumák, vystřel kyčle a nažeň jim to. Kdo váhá, čuchá!',
+    lede: 'Silnější pes mrdá, tak vyraž na čubičky!',
     grid: {
       desktopLabel: 'Počítač',
       desktopValue: 'WASD / Šipky',
@@ -40,8 +40,9 @@ const cs = {
     jerseyCustom: 'Vyber vlastní barvu',
     voiceLabel: 'Hlas mopslíka',
     languageLabel: 'Jazyk',
-    start: 'JDEM NA TO!',
+    start: 'ZAHÁJIT HONITBU',
     bestSoFar: (n: number) => `Zatím nejvíc nalapaných: ${n} čubiček`,
+    controlsMobileHint: 'Joystick · Šťouch na SKOK',
   },
   pause: {
     eyebrow: 'pauza',
@@ -85,6 +86,30 @@ const cs = {
     title: 'Otoč zařízení',
     body: 'Pug Banger Fiesta jede naležato. Otoč mobil bokem a běž do toho.',
   },
+  help: {
+    button: 'Jak na to',
+    title: 'Jak na to',
+    close: 'Zavřít',
+    goalHeading: '🎯 Cíl',
+    goalBody:
+      'Máš 45 vteřin. Loupežně přiskoč na co nejvíc čubiček. Trojka i čtyřka jsou plus.',
+    desktopHeading: '⌨️ Počítač',
+    desktopBody:
+      'WASD nebo šipky pro pohyb. Mezerník = SKOK na nejbližšího mopslíka v dosahu.',
+    mobileHeading: '📱 Mobil',
+    mobileBody:
+      'Levý joystick pohyb, pravé tlačítko SKOK. Drž landscape, jak ti říkáme.',
+    tipsHeading: '💡 Triky',
+    tipsBody:
+      'Skok se nabíjí (~0,4 s). Když trefíš víc mopslů v jednom skoku, hra to počítá jako trojku/čtyřku a hraje speciální hlášku. Streaky drží combo.',
+    iosHeading: '🍎 iPhone fullscreen',
+    iosBody:
+      'Safari fullscreen na iOS nejde z webu. Sdílet → "Přidat na plochu" → spustit z ikony. Pojede bez baru, jako appka.',
+  },
+  multiTagPhrases: {
+    2: 'Trojka!',
+    3: 'Čtyřka, ty prase!',
+  } as Partial<Record<number, string>>,
   tagPhrases: [
     'štěká, ale nekouše',
     'Haf haf, a je po ptákách!',
@@ -145,6 +170,7 @@ const en: typeof cs = {
     languageLabel: 'Language',
     start: 'UNLEASH ME!',
     bestSoFar: (n: number) => `Top score so far · ${n} latched`,
+    controlsMobileHint: 'Joystick · Tap to dash',
   },
   pause: {
     eyebrow: 'paused',
@@ -187,6 +213,30 @@ const en: typeof cs = {
   rotate: {
     title: 'Rotate your device',
     body: 'Pug Banger Fiesta plays best in landscape. Turn your phone sideways to start chasing.',
+  },
+  help: {
+    button: 'How to play',
+    title: 'How to play',
+    close: 'Close',
+    goalHeading: '🎯 Goal',
+    goalBody:
+      'You have 45 seconds. Pounce on as many pugs as possible. Catching 2 or 3 at once counts extra.',
+    desktopHeading: '⌨️ Desktop',
+    desktopBody:
+      'WASD or arrows to move. Space = DASH onto the nearest pug in range.',
+    mobileHeading: '📱 Mobile',
+    mobileBody:
+      'Left joystick to move, right button to DASH. Keep the phone in landscape.',
+    tipsHeading: '💡 Tips',
+    tipsBody:
+      'Dash has a short cooldown (~0.4 s). Land on multiple pugs in a single dash to trigger a threesome / foursome callout. Quick consecutive tags stack the combo.',
+    iosHeading: '🍎 iPhone fullscreen',
+    iosBody:
+      'iOS Safari can\'t go fullscreen from the web. Tap Share → "Add to Home Screen" → launch from the icon. It runs without browser chrome, like an app.',
+  },
+  multiTagPhrases: {
+    2: 'Threesome!',
+    3: 'Foursome, you freak!',
   },
   tagPhrases: [
     'Sit, stay... slay',

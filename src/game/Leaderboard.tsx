@@ -1,5 +1,5 @@
 import type { LeaderboardEntry } from '../lib/supabase';
-import type { Strings } from './i18n';
+import type { Lang, Strings } from './i18n';
 
 const MEDAL: Record<number, string> = {
   1: '🥇',
@@ -13,18 +13,35 @@ const POD_CLASS: Record<number, string> = {
   3: 'bronze',
 };
 
+const BROWSER_LANG: Record<Lang, string> = {
+  cs: 'cs-CZ',
+  en: 'en-US',
+};
+
+function formatEntryDate(iso: string, lang: Lang): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(BROWSER_LANG[lang], {
+    day: 'numeric',
+    month: 'short',
+    year: '2-digit',
+  }).format(date);
+}
+
 export function Leaderboard({
   entries,
   loading,
   error,
   highlightId,
   strings,
+  lang,
 }: Readonly<{
   entries: LeaderboardEntry[];
   loading: boolean;
   error: string | null;
   highlightId?: string | null;
   strings: Strings;
+  lang: Lang;
 }>) {
   const t = strings.leaderboard;
   const podium = entries.slice(0, 3);
@@ -73,6 +90,7 @@ export function Leaderboard({
               </div>
               <div className="lb-pod-score">{entry.score}</div>
               <div className="lb-pod-suffix">{t.scoreHeader}</div>
+              <div className="lb-pod-date">{formatEntryDate(entry.created_at, lang)}</div>
             </div>
           );
         })}
@@ -91,8 +109,13 @@ export function Leaderboard({
             return (
               <div key={entry.id} className={`lb-row ${isYou ? 'you' : ''}`}>
                 <span className="lb-rank">{rank}</span>
-                <span className="lb-name" title={entry.player_name}>
-                  {entry.player_name}
+                <span className="lb-name-wrap">
+                  <span className="lb-name" title={entry.player_name}>
+                    {entry.player_name}
+                  </span>
+                  <small className="lb-date">
+                    {formatEntryDate(entry.created_at, lang)}
+                  </small>
                 </span>
                 <span className="lb-score">{entry.score}</span>
               </div>
@@ -110,6 +133,7 @@ export function MiniLeaderboard({
   error,
   highlightId,
   strings,
+  lang,
   limit = 5,
 }: Readonly<{
   entries: LeaderboardEntry[];
@@ -117,6 +141,7 @@ export function MiniLeaderboard({
   error: string | null;
   highlightId?: string | null;
   strings: Strings;
+  lang: Lang;
   limit?: number;
 }>) {
   const t = strings.leaderboard;
@@ -143,8 +168,13 @@ export function MiniLeaderboard({
         return (
           <div key={entry.id} className={`res-mini ${isYou ? 'you' : ''}`}>
             <span className="res-mini-rank">{badge}</span>
-            <span className="res-mini-name" title={entry.player_name}>
-              {entry.player_name}
+            <span className="res-mini-name-wrap">
+              <span className="res-mini-name" title={entry.player_name}>
+                {entry.player_name}
+              </span>
+              <small className="res-mini-date">
+                {formatEntryDate(entry.created_at, lang)}
+              </small>
             </span>
             <span className="res-mini-score">{entry.score}</span>
           </div>

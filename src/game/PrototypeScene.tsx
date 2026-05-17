@@ -62,7 +62,7 @@ export function PrototypeScene({
   moveInput: AnalogInput;
   dashNonce: number;
   onDashStart: () => void;
-  onTag: () => void;
+  onTag: (chainSize: number) => void;
   roundId: number;
   jerseyColor: string;
 }) {
@@ -301,9 +301,9 @@ export function PrototypeScene({
             npc.z - playerData.z,
           );
           if (postMoveDistance < TAG_RADIUS) {
-            onTag();
-            playerData.latchTime = LATCH_DURATION;
             playerData.latchedNpcIds.push(index);
+            onTag(playerData.latchedNpcIds.length);
+            playerData.latchTime = LATCH_DURATION;
             playerData.velocityX = 0;
             playerData.velocityZ = 0;
             npc.isLatched = true;
