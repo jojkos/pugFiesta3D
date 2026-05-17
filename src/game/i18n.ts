@@ -65,7 +65,7 @@ const cs = {
     close: 'Zavřít',
     goalHeading: '🎯 Cíl',
     goalBody:
-      'Máš 45 vteřin. Obskoč co nejvíce čubiček. BANG se chvíli nabíjí, tak ho mač jen v dosahu. Když trefíš víc čubiček naráz, je z toho trojka nebo grupáč.',
+      'Máš 45 vteřin. Obskoč co nejvíce čubiček. Když trefíš víc čubiček naráz, je z toho trojka nebo grupáč.',
     desktopHeading: '⌨️ Počítač',
     desktopBody:
       'WASD nebo šipky pro pohyb. Mezerník = BANG na nejbližšího mopsíka v dosahu.',
