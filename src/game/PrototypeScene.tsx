@@ -279,6 +279,20 @@ export function PrototypeScene({
         }
 
         if (npc.isLatched) {
+          // Drag latched NPCs in a trail behind the player so the dash can
+          // continue (chain-tagging) without a snap-back when it ends.
+          const slot = playerData.latchedNpcIds.indexOf(index);
+          const trail = 0.85 + Math.max(0, slot) * 0.6;
+          const desiredX = playerData.x - playerData.facingX * trail;
+          const desiredZ = playerData.z - playerData.facingZ * trail;
+          const clampedTrail = clampToArena(desiredX, desiredZ);
+          npc.x = MathUtils.lerp(npc.x, clampedTrail.x, 0.55);
+          npc.z = MathUtils.lerp(npc.z, clampedTrail.z, 0.55);
+          const lookX = playerData.x - npc.x;
+          const lookZ = playerData.z - npc.z;
+          const lookLen = Math.max(0.001, Math.hypot(lookX, lookZ));
+          npc.dirX = lookX / lookLen;
+          npc.dirZ = lookZ / lookLen;
           npcActions.current[index] = 'react';
           return;
         }
@@ -350,25 +364,6 @@ export function PrototypeScene({
           }
         }
       });
-
-      if (
-        playerData.latchedNpcIds.length > 0 &&
-        playerData.dashTime <= 0
-      ) {
-        let sumX = 0;
-        let sumZ = 0;
-        playerData.latchedNpcIds.forEach((id) => {
-          sumX += npcData[id].x;
-          sumZ += npcData[id].z;
-        });
-        const avgX = sumX / playerData.latchedNpcIds.length;
-        const avgZ = sumZ / playerData.latchedNpcIds.length;
-        const latchOffset = 0.7;
-        const targetX = avgX - playerData.facingX * latchOffset;
-        const targetZ = avgZ - playerData.facingZ * latchOffset;
-        playerData.x = MathUtils.lerp(playerData.x, targetX, 0.42);
-        playerData.z = MathUtils.lerp(playerData.z, targetZ, 0.42);
-      }
     }
 
     playerData.bob += delta * (playerData.dashTime > 0 ? 22 : 8);

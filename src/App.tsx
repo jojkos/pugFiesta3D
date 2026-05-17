@@ -84,6 +84,18 @@ function App() {
   const [dashNonce, setDashNonce] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [joystick, setJoystick] = useState<AnalogInput>({ x: 0, y: 0 });
+  const [cameraZoom, setCameraZoom] = useState(() => computeCameraZoom());
+
+  useEffect(() => {
+    const update = () => setCameraZoom(computeCameraZoom());
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
   const [submittedEntryId, setSubmittedEntryId] = useState<string | null>(null);
   const {
     entries: leaderboardEntries,
@@ -278,7 +290,7 @@ function App() {
           <OrthographicCamera
             makeDefault
             position={CAMERA_POSITION.toArray()}
-            zoom={56}
+            zoom={cameraZoom}
           />
           <hemisphereLight args={['#ffe9c8', '#7fa860', 0.7]} />
           <ambientLight intensity={0.85} />
@@ -454,6 +466,17 @@ function requestImmersiveMode() {
   if (orientation?.lock) {
     orientation.lock('landscape').catch(() => {});
   }
+}
+
+function computeCameraZoom() {
+  if (typeof window === 'undefined') return 56;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  // Use min(w, h*2) so we react to the shorter side (mostly width on landscape,
+  // height on near-square viewports). PC ~1400px wide → zoom ≈ 56 (original),
+  // phone landscape ~800px → zoom ≈ 32 (zoomed out enough to see full pitch).
+  const raw = Math.min(w, h * 2) / 25;
+  return Math.max(30, Math.min(raw, 60));
 }
 
 function isPortraitMobile() {
