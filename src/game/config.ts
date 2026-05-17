@@ -3,12 +3,12 @@ import type { NpcVariant } from './types';
 
 export const ROUND_DURATION = 45;
 export const ARENA_LIMIT = 8.5;
-export const FIELD_HALF_X = 11;
-export const FIELD_HALF_Z = 6;
-export const GOAL_AREA_RADIUS = 4;
-export const GOAL_WIDTH = 3;
-export const GOAL_HEIGHT = 1.6;
-export const GOAL_DEPTH = 1;
+export const FIELD_HALF_X = 9.5;
+export const FIELD_HALF_Z = 5;
+export const GOAL_AREA_RADIUS = 3.4;
+export const GOAL_WIDTH = 2.7;
+export const GOAL_HEIGHT = 1.5;
+export const GOAL_DEPTH = 0.9;
 export const LINE_WIDTH = 0.12;
 export const LINE_Y = 0.02;
 export const DASH_DURATION = 0.22;

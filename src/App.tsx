@@ -469,14 +469,12 @@ function requestImmersiveMode() {
 }
 
 function computeCameraZoom() {
-  if (typeof window === 'undefined') return 56;
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  // Use min(w, h*2) so we react to the shorter side (mostly width on landscape,
-  // height on near-square viewports). PC ~1400px wide → zoom ≈ 56 (original),
-  // phone landscape ~800px → zoom ≈ 32 (zoomed out enough to see full pitch).
-  const raw = Math.min(w, h * 2) / 25;
-  return Math.max(30, Math.min(raw, 60));
+  if (globalThis.window === undefined) return 64;
+  const w = globalThis.window.innerWidth;
+  const h = globalThis.window.innerHeight;
+  // Field is ~19×10 in world units now. Tighter framing: PC ~70, phone ~46.
+  const raw = Math.min(w, h * 2) / 17.5;
+  return Math.max(42, Math.min(raw, 72));
 }
 
 function isPortraitMobile() {

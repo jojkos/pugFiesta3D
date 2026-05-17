@@ -396,8 +396,11 @@ body {
   gap: 10px;
   align-items: center;
   justify-content: center;
-  position: relative;
-  z-index: 1;
+  position: sticky;
+  bottom: 0;
+  background: var(--paper);
+  padding: 10px 0 4px;
+  z-index: 2;
 }
 
 .menu-start {
@@ -1176,6 +1179,13 @@ body {
 .lb-actions {
   display: flex;
   gap: 8px;
+  position: sticky;
+  bottom: 0;
+  background: var(--paper);
+  padding-top: 8px;
+  margin-top: -8px;
+  z-index: 2;
+  flex-shrink: 0;
 }
 
 .lb-btn-prim {
@@ -1501,6 +1511,13 @@ body {
 .res-actions {
   display: flex;
   gap: 8px;
+  position: sticky;
+  bottom: 0;
+  background: var(--paper);
+  padding-top: 8px;
+  margin-top: -8px;
+  z-index: 2;
+  flex-shrink: 0;
 }
 
 .res-btn-prim {
@@ -1632,6 +1649,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  position: sticky;
+  bottom: 0;
+  background: var(--paper);
+  padding-top: 8px;
+  z-index: 2;
+  flex-shrink: 0;
 }
 
 .pa-btn-prim {
