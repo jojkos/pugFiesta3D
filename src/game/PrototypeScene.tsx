@@ -645,7 +645,7 @@ function createNpcState(index: number, roundSeed: number): NpcState {
   } else if (Math.abs(normalized - Math.PI) < 0.6) {
     angle += 0.9;
   }
-  const radius = 4 + (index % 2) * 1.4;
+  const radius = 3.3 + (index % 2) * 1.2;
   return {
     x: Math.cos(angle) * radius,
     z: Math.sin(angle) * (radius * 0.55),

@@ -33,8 +33,8 @@ export function Environment({
       <PitchLines />
       <Goal side={-1} />
       <Goal side={1} />
-      <Frisbee position={[-10.6, 0.025, 1.5]} rotation={0.4} />
-      <Frisbee position={[1.6, 0.025, -7.4]} rotation={-0.9} />
+      <Frisbee position={[-9.1, 0.025, 1.2]} rotation={0.4} />
+      <Frisbee position={[1.4, 0.025, -6.3]} rotation={-0.9} />
       <Scoreboard3D score={score} timeLeft={timeLeft} />
       <PerimeterTrees />
       <FlowerScatter decor={decor} />
@@ -324,7 +324,7 @@ function Scoreboard3D({
   const panelW = 4.0;
   const panelH = 1.05;
   return (
-    <group position={[0, 0, -6.8]}>
+    <group position={[0, 0, -5.8]}>
       {/* Front face — leans back, top closer to -Z (away from camera) */}
       <group position={[0, 0.6, 0.3]} rotation={[-tilt, 0, 0]}>
         <mesh castShadow>
@@ -532,14 +532,14 @@ function FlowerScatter({ decor }: { readonly decor: DecorPoint[] }) {
 
 function BushClusters() {
   const bushes = [
-    [-12.6, -7.8, 1.05, '#7cb96a'],
-    [-13.4, 3.2, 0.95, '#72b461'],
-    [12.8, -3.6, 1.1, '#84bf72'],
-    [13.2, 5.8, 0.96, '#70ac60'],
-    [-4.8, -8.6, 1.15, '#79bb68'],
-    [4.5, 8.4, 1.05, '#84bf72'],
-    [-7.6, 8.2, 0.92, '#7ec369'],
-    [7.0, -8.4, 1.0, '#74b35e'],
+    [-10.8, -6.5, 1.05, '#7cb96a'],
+    [-11.5, 2.7, 0.95, '#72b461'],
+    [11.0, -3.0, 1.1, '#84bf72'],
+    [11.4, 4.9, 0.96, '#70ac60'],
+    [-4.1, -7.2, 1.15, '#79bb68'],
+    [3.9, 7.0, 1.05, '#84bf72'],
+    [-6.5, 6.8, 0.92, '#7ec369'],
+    [6.0, -7.0, 1.0, '#74b35e'],
   ] as const;
 
   return (
@@ -567,13 +567,13 @@ function BushClusters() {
 function Props() {
   return (
     <group>
-      <Bone position={[8.4, 0.18, 7.6]} rotation={0.6} />
-      <Bone position={[-9.0, 0.18, -7.4]} rotation={-1.1} />
-      <Bone position={[3.6, 0.18, 8.2]} rotation={0.2} />
-      <BallProp position={[-6.6, 0.22, 8.0]} color="#ff6f73" />
-      <BallProp position={[8.8, 0.22, -7.4]} color="#5fc8d4" />
-      <Frisbee position={[-12.4, 0.025, 0.6]} rotation={0.8} />
-      <Frisbee position={[12.4, 0.025, -0.4]} rotation={-0.4} />
+      <Bone position={[7.2, 0.18, 6.3]} rotation={0.6} />
+      <Bone position={[-7.7, 0.18, -6.2]} rotation={-1.1} />
+      <Bone position={[3.1, 0.18, 6.8]} rotation={0.2} />
+      <BallProp position={[-5.7, 0.22, 6.6]} color="#ff6f73" />
+      <BallProp position={[7.6, 0.22, -6.2]} color="#5fc8d4" />
+      <Frisbee position={[-10.6, 0.025, 0.5]} rotation={0.8} />
+      <Frisbee position={[10.6, 0.025, -0.3]} rotation={-0.4} />
     </group>
   );
 }
