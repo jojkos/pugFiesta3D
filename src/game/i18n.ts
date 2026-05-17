@@ -11,6 +11,7 @@ const cs = {
     pause: 'Pauza',
     resume: 'Pokračovat',
     dash: 'BANG',
+    fullscreen: 'Celá obrazovka',
   },
   countdownGo: 'JEDEM!',
   menu: {
@@ -104,6 +105,7 @@ const en: typeof cs = {
     pause: 'Pause round',
     resume: 'Resume round',
     dash: 'DASH',
+    fullscreen: 'Fullscreen',
   },
   countdownGo: 'LET\'S GOOO',
   menu: {
