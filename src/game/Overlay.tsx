@@ -22,12 +22,16 @@ const CHIP_LABELS: Record<Lang, { lang: string; jersey: string; voice: string }>
 };
 
 const JERSEY_PRESETS: Readonly<{ hex: string; label: string }[]> = [
-  { hex: '#5b3aa3', label: 'Indigo' },
-  { hex: '#ff7d8e', label: 'Pink' },
-  { hex: '#ffb25b', label: 'Amber' },
-  { hex: '#3ec5a3', label: 'Mint' },
-  { hex: '#5aa9ff', label: 'Sky' },
-  { hex: '#2a1713', label: 'Ink' },
+  { hex: '#7cc7ff', label: 'Psí děvky' },
+  { hex: '#7a3fbf', label: 'Epix' },
+  { hex: '#d6324e', label: 'Odpad' },
+  { hex: '#ff8a3d', label: 'Centimetry' },
+  { hex: '#f3c526', label: 'Ketutus' },
+  { hex: '#f5f1ea', label: 'Kule' },
+  { hex: '#7a1f2c', label: 'DIY' },
+  { hex: '#ff7d9c', label: 'Tamara' },
+  { hex: '#2fb87a', label: 'JZK' },
+  { hex: '#1e6dff', label: 'Díra v tichu' },
 ];
 
 function isIosWebContext(): boolean {
