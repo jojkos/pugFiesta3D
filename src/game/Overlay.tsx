@@ -16,22 +16,47 @@ const LANG_LABELS: Record<Lang, string> = {
   en: 'English',
 };
 
-const CHIP_LABELS: Record<Lang, { lang: string; jersey: string; voice: string }> = {
-  cs: { lang: 'jazyk', jersey: 'dres', voice: 'hlas' },
-  en: { lang: 'lang', jersey: 'jersey', voice: 'voice' },
+const CHIP_LABELS: Record<Lang, { lang: string; team: string; voice: string }> = {
+  cs: { lang: 'jazyk', team: 'tým', voice: 'hlas' },
+  en: { lang: 'lang', team: 'team', voice: 'voice' },
 };
 
-const JERSEY_PRESETS: Readonly<{ hex: string; label: string }[]> = [
-  { hex: '#ffffff', label: 'Psí děvky' },
-  { hex: '#9e2ac2', label: 'Epix' },
-  { hex: '#ff002b', label: 'Odpad' },
-  { hex: '#ff8a3d', label: 'Centimetry' },
-  { hex: '#f3c526', label: 'Ketutus' },
-  { hex: '#791927', label: 'DIY' },
-  { hex: '#f838a8', label: 'Tamara' },
-  { hex: '#034c2b', label: 'JZM' },
-  { hex: '#63b8f9', label: 'Díra v tichu' },
+type Team = {
+  id: string;
+  label: string;
+  primary: string;
+  accent?: string;
+};
+
+// Each team has a primary jersey color and an optional accent (stripe).
+// When accent is missing, the jersey is solid (Jersey2 mirrors Jersey).
+const TEAMS: readonly Team[] = [
+  { id: 'psidevky',   label: 'Psí děvky',    primary: '#ffffff', accent: '#033e8f' },
+  { id: 'epix',       label: 'Epix',         primary: '#9e2ac2', accent: '#f3c526' },
+  { id: 'odpad',      label: 'Odpad',        primary: '#ff002b' },
+  { id: 'centimetry', label: 'Centimetry',   primary: '#ff8a3d' },
+  { id: 'ketutus',    label: 'Ketutus',      primary: '#1a1a1a', accent: '#f3c526' },
+  { id: 'diy',        label: 'DIY',          primary: '#791927' },
+  { id: 'tamara',     label: 'Tamara',       primary: '#f838a8' },
+  { id: 'jzm',        label: 'JZM',          primary: '#034c2b' },
+  { id: 'tichu',      label: 'Díra v tichu', primary: '#63b8f9' },
 ];
+
+function eqHex(a: string, b: string) {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+function findTeam(primary: string, accent: string): Team | undefined {
+  return TEAMS.find((t) => {
+    const teamAccent = t.accent ?? t.primary;
+    return eqHex(t.primary, primary) && eqHex(teamAccent, accent);
+  });
+}
+
+function teamBadgeBackground(team: Team): string {
+  if (!team.accent) return team.primary;
+  return `linear-gradient(110deg, ${team.primary} 0%, ${team.primary} 50%, ${team.accent} 50%, ${team.accent} 100%)`;
+}
 
 function isIosWebContext(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -104,11 +129,13 @@ function ChipPopover({
   label,
   value,
   leading,
+  wide,
   children,
 }: Readonly<{
   label: string;
   value: string;
   leading?: ReactNode;
+  wide?: boolean;
   children: (close: () => void) => ReactNode;
 }>) {
   const [open, setOpen] = useState(false);
@@ -130,7 +157,7 @@ function ChipPopover({
         </span>
       </button>
       {open && (
-        <div className="menu-pop">
+        <div className={`menu-pop ${wide ? 'wide' : ''}`}>
           <p className="menu-pop-title">{label}</p>
           <div className="menu-pop-options">{children(() => setOpen(false))}</div>
         </div>
@@ -149,7 +176,9 @@ export function Overlay({
   onStartRound,
   isMuted,
   jerseyColor,
+  jerseyAccentColor,
   onJerseyColorChange,
+  onJerseyAccentColorChange,
   onToggleMute,
   onTogglePause,
   onQuitToMenu,
@@ -174,7 +203,9 @@ export function Overlay({
   onStartRound: () => void;
   isMuted: boolean;
   jerseyColor: string;
+  jerseyAccentColor: string;
   onJerseyColorChange: (color: string) => void;
+  onJerseyAccentColorChange: (color: string) => void;
   onToggleMute: () => void;
   onTogglePause: () => void;
   onQuitToMenu: () => void;
@@ -229,9 +260,8 @@ export function Overlay({
 
   const langLabel = LANG_LABELS[lang];
   const langFlag = LANG_FLAGS[lang];
-  const jerseyLabel =
-    JERSEY_PRESETS.find((preset) => preset.hex.toLowerCase() === jerseyColor.toLowerCase())
-      ?.label ?? 'Custom';
+  const currentTeam = findTeam(jerseyColor, jerseyAccentColor);
+  const teamLabel = currentTeam?.label ?? strings.menu.teamCustom;
   const voiceLabel =
     voiceCharacters.find((character) => character.voiceId === voiceId)?.label ??
     voiceCharacters[0]?.label ??
@@ -383,44 +413,87 @@ export function Overlay({
               </ChipPopover>
 
               <ChipPopover
-                label={CHIP_LABELS[lang].jersey}
-                value={jerseyLabel}
-                leading={<span className="dot" style={{ background: jerseyColor }} />}
+                label={CHIP_LABELS[lang].team}
+                value={teamLabel}
+                leading={
+                  <span
+                    className="mini-jersey-split"
+                    style={{
+                      background: jerseyAccentColor && !eqHex(jerseyColor, jerseyAccentColor)
+                        ? `linear-gradient(90deg, ${jerseyColor} 50%, ${jerseyAccentColor} 50%)`
+                        : jerseyColor,
+                    }}
+                  />
+                }
+                wide
               >
-                {(close) => (
-                  <>
-                    {JERSEY_PRESETS.map((preset) => {
-                      const active =
-                        preset.hex.toLowerCase() === jerseyColor.toLowerCase();
-                      return (
-                        <button
-                          key={preset.hex}
-                          type="button"
-                          className={`menu-pop-swatch ${active ? 'on' : ''}`}
-                          style={{ background: preset.hex }}
-                          title={preset.label}
-                          aria-label={strings.menu.jerseySwatchLabel(preset.label)}
-                          onClick={() => {
-                            onJerseyColorChange(preset.hex);
-                            close();
-                          }}
-                        />
-                      );
-                    })}
-                    <label
-                      className="menu-pop-swatch menu-pop-swatch-custom"
-                      style={{ background: jerseyColor }}
-                      title={strings.menu.jerseyCustom}
-                      aria-label={strings.menu.jerseyCustom}
-                    >
-                      <span aria-hidden="true">+</span>
-                      <input
-                        type="color"
-                        value={jerseyColor}
-                        onChange={(event) => onJerseyColorChange(event.target.value)}
-                      />
-                    </label>
-                  </>
+                {() => (
+                  <div className="team-pop">
+                    <p className="menu-pop-title">{strings.menu.teamPickerTitle}</p>
+                    <div className="team-grid">
+                      {TEAMS.map((team) => {
+                        const active = currentTeam?.id === team.id;
+                        return (
+                          <button
+                            key={team.id}
+                            type="button"
+                            className={`team-badge ${active ? 'on' : ''}`}
+                            style={{ background: teamBadgeBackground(team) }}
+                            title={team.label}
+                            aria-label={strings.menu.teamBadgeLabel(team.label)}
+                            onClick={() => {
+                              onJerseyColorChange(team.primary);
+                              onJerseyAccentColorChange(team.accent ?? team.primary);
+                            }}
+                          >
+                            {team.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="team-custom">
+                      <p className="menu-pop-title">
+                        {currentTeam ? strings.menu.teamTuning : strings.menu.teamCustom}
+                      </p>
+                      <div className="team-custom-row">
+                        <label className="team-color-pick">
+                          <span
+                            className="team-color-swatch"
+                            style={{ background: jerseyColor }}
+                          >
+                            <input
+                              type="color"
+                              value={jerseyColor}
+                              onChange={(event) => onJerseyColorChange(event.target.value)}
+                            />
+                          </span>
+                          <span className="team-color-label">
+                            <small>{strings.menu.teamPrimaryLabel}</small>
+                            <strong>{jerseyColor.toUpperCase()}</strong>
+                          </span>
+                        </label>
+                        <label className="team-color-pick">
+                          <span
+                            className="team-color-swatch"
+                            style={{ background: jerseyAccentColor }}
+                          >
+                            <input
+                              type="color"
+                              value={jerseyAccentColor}
+                              onChange={(event) =>
+                                onJerseyAccentColorChange(event.target.value)
+                              }
+                            />
+                          </span>
+                          <span className="team-color-label">
+                            <small>{strings.menu.teamAccentLabel}</small>
+                            <strong>{jerseyAccentColor.toUpperCase()}</strong>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </ChipPopover>
 

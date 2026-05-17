@@ -77,7 +77,7 @@ export function useArcadeAudio(muted: boolean) {
       fxBus.connect(master);
 
       const musicBus = context.createGain();
-      musicBus.gain.value = 0.55;
+      musicBus.gain.value = 0.95;
       musicBus.connect(master);
 
       const reverb = context.createConvolver();
@@ -350,7 +350,7 @@ export function useArcadeAudio(muted: boolean) {
               {
                 frequency,
                 duration: 0.34,
-                gain: step === 0 ? 0.022 : 0.014,
+                gain: step === 0 ? 0.07 : 0.045,
                 type: step % 2 === 0 ? 'triangle' : 'sine',
                 attack: 0.04,
                 detune: step === 3 ? -8 : 4,
@@ -364,7 +364,7 @@ export function useArcadeAudio(muted: boolean) {
                 {
                   frequency: frequency / 2,
                   duration: 0.4,
-                  gain: 0.012,
+                  gain: 0.04,
                   type: 'sine',
                   attack: 0.05,
                 },

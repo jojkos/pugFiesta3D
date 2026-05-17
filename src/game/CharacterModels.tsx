@@ -22,6 +22,7 @@ type CharacterPalette = {
   accentColor: string;
   accessoryColor?: string;
   jerseyColor?: string;
+  jerseyAccentColor?: string;
 };
 
 type PugModelProps = ThreeElements['group'] & {
@@ -117,7 +118,7 @@ export function PugCharacter({
         nextMaterial.color.set(palette.bodyColor);
       } else if (materialName.includes('brown')) {
         nextMaterial.color.set(palette.headColor);
-      } else if (materialName === 'jersey') {
+      } else if (materialName === 'jersey' || materialName === 'jersey2') {
         nextMaterial.emissive.set(0x000000);
         nextMaterial.emissiveIntensity = 0;
       } else if (totalMaterials === 1) {
@@ -138,19 +139,27 @@ export function PugCharacter({
     if (!isPlayer || !palette.jerseyColor) {
       return;
     }
-    const target = palette.jerseyColor;
+    const primary = palette.jerseyColor;
+    const accent = palette.jerseyAccentColor ?? primary;
     rootScene.traverse((object) => {
       if (
-        object instanceof Mesh &&
-        object.material instanceof MeshStandardMaterial &&
-        object.material.name === 'Jersey'
+        !(object instanceof Mesh) ||
+        !(object.material instanceof MeshStandardMaterial)
       ) {
-        object.material.color.set(target);
+        return;
+      }
+      const name = object.material.name;
+      if (name === 'Jersey') {
+        object.material.color.set(primary);
+        object.material.emissive.set(0x000000);
+        object.material.emissiveIntensity = 0;
+      } else if (name === 'Jersey2') {
+        object.material.color.set(accent);
         object.material.emissive.set(0x000000);
         object.material.emissiveIntensity = 0;
       }
     });
-  }, [palette.jerseyColor, isPlayer, rootScene]);
+  }, [palette.jerseyColor, palette.jerseyAccentColor, isPlayer, rootScene]);
 
   const { mixer } = useAnimations(animations, root);
   const actions = useRef<ActionMap>({});
