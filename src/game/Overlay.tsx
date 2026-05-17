@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { LeaderboardEntry } from '../lib/supabase';
 import type { GameMode } from './types';
@@ -40,6 +40,53 @@ function isIosWebContext(): boolean {
   const isIos = /iPhone|iPad|iPod/.test(ua);
   const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
   return isIos && !standalone;
+}
+
+function useFullscreen() {
+  const [isFullscreen, setIsFullscreen] = useState(() =>
+    typeof document !== 'undefined' && !!document.fullscreenElement,
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  const supported =
+    typeof document !== 'undefined' &&
+    typeof document.documentElement.requestFullscreen === 'function';
+
+  const toggle = useCallback(() => {
+    if (typeof document === 'undefined') return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    } else {
+      document.documentElement
+        .requestFullscreen?.({ navigationUI: 'hide' })
+        .catch(() => {});
+    }
+  }, []);
+
+  return { isFullscreen, toggle, supported };
+}
+
+function FullscreenButton({ label }: Readonly<{ label: string }>) {
+  const { isFullscreen, toggle, supported } = useFullscreen();
+  if (!supported) return null;
+  return (
+    <button
+      type="button"
+      className={`menu-tool-btn ${isFullscreen ? 'is-active' : ''}`}
+      aria-label={label}
+      title={label}
+      aria-pressed={isFullscreen}
+      onClick={toggle}
+    >
+      {isFullscreen ? '⤡' : '⤢'}
+    </button>
+  );
 }
 
 function useOutside(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
@@ -283,15 +330,18 @@ export function Overlay({
       {mode === 'menu' && !menuLeaderboardOpen && (
         <div className="modal-backdrop is-menu">
           <section className="menu">
-            <button
-              type="button"
-              className="menu-help-btn"
-              aria-label={strings.help.button}
-              title={strings.help.button}
-              onClick={() => setHelpOpen(true)}
-            >
-              ?
-            </button>
+            <div className="menu-toolbar">
+              <FullscreenButton label={strings.controls.fullscreen} />
+              <button
+                type="button"
+                className="menu-tool-btn"
+                aria-label={strings.help.button}
+                title={strings.help.button}
+                onClick={() => setHelpOpen(true)}
+              >
+                ?
+              </button>
+            </div>
             <div className="menu-hero">
               <img
                 className="menu-logo"
@@ -475,6 +525,9 @@ export function Overlay({
       {paused && mode === 'playing' && (
         <div className="modal-backdrop">
           <section className="pa">
+            <div className="menu-toolbar">
+              <FullscreenButton label={strings.controls.fullscreen} />
+            </div>
             <div className="pa-icon">⏸</div>
             <p className="pa-eye">{strings.pause.eyebrow}</p>
             <h2 className="pa-title">{strings.pause.title}</h2>
