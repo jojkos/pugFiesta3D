@@ -3,6 +3,14 @@ import type { NpcVariant } from './types';
 
 export const ROUND_DURATION = 45;
 export const ARENA_LIMIT = 8.5;
+export const FIELD_HALF_X = 11;
+export const FIELD_HALF_Z = 6;
+export const GOAL_AREA_RADIUS = 4;
+export const GOAL_WIDTH = 3;
+export const GOAL_HEIGHT = 1.6;
+export const GOAL_DEPTH = 1;
+export const LINE_WIDTH = 0.12;
+export const LINE_Y = 0.02;
 export const DASH_DURATION = 0.22;
 export const DASH_COOLDOWN = 0.42;
 export const LATCH_DURATION = 0.64;
@@ -17,12 +25,9 @@ export const DASH_SPEED = 11.4;
 export const NPC_RESPAWN_DELAY = 1;
 export const TOUCH_DEADZONE = 0.16;
 
-export const CAMERA_POSITION = new Vector3(14, 14, 14);
-export const SCREEN_FORWARD = new Vector2(
-  -CAMERA_POSITION.x,
-  -CAMERA_POSITION.z,
-).normalize();
-export const SCREEN_RIGHT = new Vector2(1, -1).normalize();
+export const CAMERA_POSITION = new Vector3(0, 14, 15);
+export const SCREEN_FORWARD = new Vector2(0, -1);
+export const SCREEN_RIGHT = new Vector2(1, 0);
 
 export const NPC_VARIANTS: NpcVariant[] = [
   {

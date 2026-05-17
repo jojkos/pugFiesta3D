@@ -3,12 +3,13 @@ import { Suspense, useEffect, useMemo, useRef } from 'react';
 import type { Group, Mesh } from 'three';
 import { MathUtils, Vector2, Vector3 } from 'three';
 import {
-  ARENA_LIMIT,
   CAMERA_POSITION,
   DASH_BUFFER,
   DASH_COOLDOWN,
   DASH_DURATION,
   DASH_SPEED,
+  FIELD_HALF_X,
+  FIELD_HALF_Z,
   HITSTOP_DURATION,
   LATCH_DURATION,
   MAX_SIMULTANEOUS_LATCHES,
@@ -58,6 +59,8 @@ export function PrototypeScene({
   roundId,
   jerseyColor,
   jerseyAccentColor,
+  score,
+  timeLeft,
 }: {
   isPlaying: boolean;
   moveInput: AnalogInput;
@@ -67,6 +70,8 @@ export function PrototypeScene({
   roundId: number;
   jerseyColor: string;
   jerseyAccentColor: string;
+  score: number;
+  timeLeft: number;
 }) {
   const { camera } = useThree();
   const player = useRef<Group>(null);
@@ -101,20 +106,42 @@ export function PrototypeScene({
   );
   const scratchVec2 = useRef(new Vector2());
   const scratchCameraFocus = useRef(new Vector3());
-  const scratchCameraPos = useRef(new Vector3());
-  const decor = useMemo(
-    () =>
-      Array.from({ length: 18 }, (_, index) => {
-        const angle = (index / 18) * Math.PI * 2;
-        const radius = 6.1 + (index % 4) * 0.85;
-        return {
-          x: Math.cos(angle) * radius,
-          z: Math.sin(angle) * radius,
-          scale: 0.82 + (index % 4) * 0.12,
-        };
-      }),
-    [],
-  );
+  const decor = useMemo(() => {
+    const points: Array<{ x: number; z: number; scale: number }> = [];
+    const outerX = FIELD_HALF_X + 1.4;
+    const outerZ = FIELD_HALF_Z + 1.4;
+    for (let i = 0; i < 18; i += 1) {
+      const t = (i + 0.5) / 18;
+      const side = i % 4;
+      const jitter = ((i * 37) % 11) * 0.08 - 0.4;
+      if (side === 0) {
+        points.push({
+          x: -FIELD_HALF_X + t * FIELD_HALF_X * 2,
+          z: outerZ + jitter,
+          scale: 0.82 + (i % 4) * 0.12,
+        });
+      } else if (side === 1) {
+        points.push({
+          x: -FIELD_HALF_X + t * FIELD_HALF_X * 2,
+          z: -outerZ - jitter,
+          scale: 0.82 + (i % 4) * 0.12,
+        });
+      } else if (side === 2) {
+        points.push({
+          x: outerX + jitter,
+          z: -FIELD_HALF_Z + t * FIELD_HALF_Z * 2,
+          scale: 0.82 + (i % 4) * 0.12,
+        });
+      } else {
+        points.push({
+          x: -outerX - jitter,
+          z: -FIELD_HALF_Z + t * FIELD_HALF_Z * 2,
+          scale: 0.82 + (i % 4) * 0.12,
+        });
+      }
+    }
+    return points;
+  }, []);
 
   useEffect(() => {
     camera.lookAt(0, 0, 0);
@@ -367,24 +394,23 @@ export function PrototypeScene({
 
     cameraFocus.current.lerp(
       scratchCameraFocus.current.set(
-        playerData.x * 0.22,
+        playerData.x * 0.32,
         0,
-        playerData.z * 0.22,
+        playerData.z * 0.18,
       ),
       0.08,
     );
-    camera.position.lerp(
-      scratchCameraPos.current.set(
-        CAMERA_POSITION.x + cameraFocus.current.x + shakeOffsetX,
-        CAMERA_POSITION.y,
-        CAMERA_POSITION.z + cameraFocus.current.z + shakeOffsetZ,
-      ),
-      0.12,
+    // Set position AND lookAt from the same already-smoothed focus value
+    // so the camera pans purely instead of rotating (no lerp-lag between them).
+    camera.position.set(
+      CAMERA_POSITION.x + cameraFocus.current.x + shakeOffsetX,
+      CAMERA_POSITION.y,
+      CAMERA_POSITION.z + cameraFocus.current.z + shakeOffsetZ,
     );
     camera.lookAt(
-      cameraFocus.current.x + shakeOffsetX * 0.4,
+      cameraFocus.current.x + shakeOffsetX,
       0,
-      cameraFocus.current.z + shakeOffsetZ * 0.4,
+      cameraFocus.current.z + shakeOffsetZ,
     );
 
     if (player.current) {
@@ -407,9 +433,7 @@ export function PrototypeScene({
         Math.atan2(playerData.facingX, playerData.facingZ),
         0.4,
       );
-      const lean = MathUtils.clamp(playerData.velocityX * -0.02, -0.1, 0.1);
-      player.current.rotation.z =
-        lean + (playerData.dashTime > 0 ? -0.08 : 0);
+      player.current.rotation.z = 0;
 
       const squashScale =
         playerData.latchTime > 0
@@ -489,7 +513,7 @@ export function PrototypeScene({
 
   return (
     <>
-      <Environment decor={decor} />
+      <Environment decor={decor} score={score} timeLeft={timeLeft} />
 
       <group ref={playerShadow}>
         <mesh receiveShadow rotation-x={-Math.PI / 2}>
@@ -612,20 +636,24 @@ function createPlayerState(): PlayerState {
 }
 
 function clampToArena(x: number, z: number): { x: number; z: number } {
-  const dist = Math.hypot(x, z);
-  if (dist <= ARENA_LIMIT) {
-    return { x, z };
-  }
-  const k = ARENA_LIMIT / dist;
-  return { x: x * k, z: z * k };
+  return {
+    x: Math.max(-FIELD_HALF_X, Math.min(FIELD_HALF_X, x)),
+    z: Math.max(-FIELD_HALF_Z, Math.min(FIELD_HALF_Z, z)),
+  };
 }
 
 function createNpcState(index: number, roundSeed: number): NpcState {
-  const angle = roundSeed * 0.77 + (index / NPC_COUNT) * Math.PI * 2;
-  const radius = 4.7 + (index % 2) * 1.2;
+  let angle = roundSeed * 0.77 + (index / NPC_COUNT) * Math.PI * 2;
+  const normalized = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  if (normalized < 0.6 || normalized > Math.PI * 2 - 0.6) {
+    angle += 0.9;
+  } else if (Math.abs(normalized - Math.PI) < 0.6) {
+    angle += 0.9;
+  }
+  const radius = 4 + (index % 2) * 1.4;
   return {
     x: Math.cos(angle) * radius,
-    z: Math.sin(angle) * (radius - 0.5),
+    z: Math.sin(angle) * (radius * 0.55),
     dirX: Math.cos(angle + Math.PI * 0.5),
     dirZ: Math.sin(angle + Math.PI * 0.5),
     wanderTime: 0.65 + index * 0.18,

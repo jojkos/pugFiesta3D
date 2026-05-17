@@ -172,7 +172,6 @@ export function Overlay({
   mode,
   paused,
   score,
-  timeLeft,
   onStartRound,
   isMuted,
   jerseyColor,
@@ -255,9 +254,6 @@ export function Overlay({
     setSubmitState('done');
   };
 
-  const showHud = mode === 'playing';
-  const lowTime = showHud && countdown === null && timeLeft <= 10;
-
   const langLabel = LANG_LABELS[lang];
   const langFlag = LANG_FLAGS[lang];
   const currentTeam = findTeam(jerseyColor, jerseyAccentColor);
@@ -271,22 +267,6 @@ export function Overlay({
 
   return (
     <>
-      {showHud && (
-        <header className="hud">
-          <div className="hud-chip hud-score">
-            <span className="hud-label">{strings.hud.score}</span>
-            <strong>{score}</strong>
-          </div>
-          <div className={`hud-chip hud-time ${lowTime ? 'is-low' : ''}`}>
-            <span className="hud-label">{strings.hud.time}</span>
-            <strong>{Math.ceil(timeLeft)}</strong>
-          </div>
-          <div className="hud-chip hud-best">
-            <span className="hud-label">{strings.hud.best}</span>
-            <strong>{bestScore}</strong>
-          </div>
-        </header>
-      )}
 
       <div className="control-cluster">
         <button
