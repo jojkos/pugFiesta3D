@@ -10,10 +10,10 @@ export type VoiceCharacter = {
 
 export const VOICE_CHARACTERS: Record<Lang, VoiceCharacter[]> = {
   cs: [
-    { id: 'george', label: '🎩 Frajer', voiceId: 'JBFqnCBsd6RMkjVDRZzb' },
-    { id: 'lily', label: '💃 Mrcha', voiceId: 'pFZP5JQG7iQjIQuC4Bku' },
-    { id: 'brian', label: '🎙️ Hlasatel', voiceId: 'nPczCjzI2devNBz1zQrb' },
-    { id: 'bill', label: '🪖 Seržant', voiceId: 'pqHfZKP75CvOlQylNhV4' },
+    { id: 'george', label: '🎩 Trhač', voiceId: 'JBFqnCBsd6RMkjVDRZzb' },
+    { id: 'lily', label: '💃 Čubka', voiceId: 'pFZP5JQG7iQjIQuC4Bku' },
+    { id: 'brian', label: '🎙️ Retrívr', voiceId: 'nPczCjzI2devNBz1zQrb' },
+    { id: 'bill', label: '🪖 Doga', voiceId: 'pqHfZKP75CvOlQylNhV4' },
   ],
   en: [
     { id: 'george', label: '🎩 Posh Pug', voiceId: 'JBFqnCBsd6RMkjVDRZzb' },

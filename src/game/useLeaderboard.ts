@@ -45,6 +45,21 @@ export function useLeaderboard(topN = 10, refreshKey = 0): LeaderboardState {
     if (!client) return null;
     const trimmedName = name.trim().slice(0, MAX_NAME_LEN) || 'Anonymouse';
     const clampedScore = Math.max(0, Math.min(MAX_SCORE, Math.floor(score)));
+
+    // Skip insert if this exact name + score already exists — keeps the
+    // earliest record (tie-break favors first to reach the score).
+    const { data: existing } = await client
+      .from(TABLE)
+      .select('id, player_name, score, created_at')
+      .eq('player_name', trimmedName)
+      .eq('score', clampedScore)
+      .order('created_at', { ascending: true })
+      .limit(1);
+    if (existing && existing.length > 0) {
+      await refresh();
+      return existing[0];
+    }
+
     const { data, error: err } = await client
       .from(TABLE)
       .insert({ player_name: trimmedName, score: clampedScore })

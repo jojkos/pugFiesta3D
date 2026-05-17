@@ -302,15 +302,16 @@ function App() {
             jerseyColor={jerseyColor}
             moveInput={worldMoveInput}
             onDashStart={playDash}
-            onTag={() => {
-              const phrase = pickRandomTagPhrase(lang);
+            onTag={(chainSize) => {
+              const multiPhrase = strings.multiTagPhrases[chainSize];
+              const phrase = multiPhrase ?? pickRandomTagPhrase(lang);
               const now = performance.now();
               const nextStreak =
                 now - lastTagAtRef.current < 3200 ? streak + 1 : 1;
               lastTagAtRef.current = now;
               playTag();
-              if (nextStreak >= 2) {
-                playStreakPing(nextStreak);
+              if (chainSize >= 2 || nextStreak >= 2) {
+                playStreakPing(chainSize >= 2 ? chainSize + 1 : nextStreak);
               }
               speakPhrase(phrase);
               setScore((value) => {

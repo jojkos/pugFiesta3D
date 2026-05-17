@@ -30,6 +30,14 @@ const JERSEY_PRESETS: Readonly<{ hex: string; label: string }[]> = [
   { hex: '#2a1713', label: 'Ink' },
 ];
 
+function isIosWebContext(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isIos = /iPhone|iPad|iPod/.test(ua);
+  const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return isIos && !standalone;
+}
+
 function useOutside(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
   useEffect(() => {
     function onDown(event: MouseEvent) {
@@ -139,6 +147,7 @@ export function Overlay({
   const [pendingName, setPendingName] = useState('');
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'done'>('idle');
   const [menuLeaderboardOpen, setMenuLeaderboardOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     if (mode !== 'gameOver') {
@@ -146,6 +155,7 @@ export function Overlay({
     }
     if (mode !== 'menu') {
       setMenuLeaderboardOpen(false);
+      setHelpOpen(false);
     }
   }, [mode]);
 
@@ -258,6 +268,7 @@ export function Overlay({
               error={leaderboardError}
               highlightId={highlightedEntryId}
               strings={strings}
+              lang={lang}
             />
 
             <div className="lb-actions">
@@ -278,6 +289,16 @@ export function Overlay({
       {mode === 'menu' && !menuLeaderboardOpen && (
         <div className="modal-backdrop is-menu">
           <section className="menu">
+            <button
+              type="button"
+              className="menu-help-btn"
+              aria-label={strings.help.button}
+              title={strings.help.button}
+              onClick={() => setHelpOpen(true)}
+              onMouseEnter={() => setHelpOpen(true)}
+            >
+              ?
+            </button>
             <div className="menu-hero">
               <img
                 className="menu-logo"
@@ -395,8 +416,11 @@ export function Overlay({
             </div>
 
             <div className="menu-foot">
-              <span>
+              <span className="menu-foot-controls menu-foot-controls-desktop">
                 <kbd>WASD</kbd> / <kbd>↑↓←→</kbd> · <kbd>Space</kbd>
+              </span>
+              <span className="menu-foot-controls menu-foot-controls-mobile">
+                {strings.menu.controlsMobileHint}
               </span>
               <span>
                 {strings.menu.bestSoFar(
@@ -405,6 +429,58 @@ export function Overlay({
               </span>
             </div>
           </section>
+
+          {helpOpen && (
+            <div
+              className="help-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-label={strings.help.title}
+              onClick={() => setHelpOpen(false)}
+            >
+              <section
+                className="help-panel"
+                onClick={(event) => event.stopPropagation()}
+                onMouseLeave={() => setHelpOpen(false)}
+              >
+                <header className="help-panel-head">
+                  <h3 className="help-panel-title">{strings.help.title}</h3>
+                  <button
+                    type="button"
+                    className="help-panel-close"
+                    aria-label={strings.help.close}
+                    onClick={() => setHelpOpen(false)}
+                  >
+                    ✕
+                  </button>
+                </header>
+                <div className="help-panel-body">
+                  <div className="help-section">
+                    <h4>{strings.help.goalHeading}</h4>
+                    <p>{strings.help.goalBody}</p>
+                  </div>
+                  <div className="help-section help-section-desktop">
+                    <h4>{strings.help.desktopHeading}</h4>
+                    <p>{strings.help.desktopBody}</p>
+                  </div>
+                  <div className="help-section help-section-mobile">
+                    <h4>{strings.help.mobileHeading}</h4>
+                    <p>{strings.help.mobileBody}</p>
+                  </div>
+                  <div className="help-section">
+                    <h4>{strings.help.tipsHeading}</h4>
+                    <p>{strings.help.tipsBody}</p>
+                  </div>
+                  {isIosWebContext() && (
+                    <div className="help-section help-section-ios">
+                      <h4>{strings.help.iosHeading}</h4>
+                      <p>{strings.help.iosBody}</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+          )}
         </div>
       )}
 
@@ -470,6 +546,7 @@ export function Overlay({
                 error={leaderboardError}
                 highlightId={highlightedEntryId}
                 strings={strings}
+                lang={lang}
               />
             </aside>
 
