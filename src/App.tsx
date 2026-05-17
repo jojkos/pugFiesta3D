@@ -274,11 +274,11 @@ function App() {
       <div className="scene-shell">
         <Canvas dpr={[1, 1.75]} shadows>
           <color attach="background" args={['#fde6d0']} />
-          <fog attach="fog" args={['#ffe9d3', 22, 38]} />
+          <fog attach="fog" args={['#a8d486', 60, 120]} />
           <OrthographicCamera
             makeDefault
             position={CAMERA_POSITION.toArray()}
-            zoom={52}
+            zoom={56}
           />
           <hemisphereLight args={['#ffe9c8', '#7fa860', 0.7]} />
           <ambientLight intensity={0.85} />
@@ -287,8 +287,8 @@ function App() {
             intensity={1.6}
             position={[10, 16, 8]}
             shadow-mapSize={[1024, 1024]}
-            shadow-camera-left={-14}
-            shadow-camera-right={14}
+            shadow-camera-left={-16}
+            shadow-camera-right={16}
             shadow-camera-top={14}
             shadow-camera-bottom={-14}
             shadow-camera-near={0.1}
@@ -300,6 +300,8 @@ function App() {
             jerseyColor={jerseyColor}
             jerseyAccentColor={jerseyAccentColor}
             moveInput={worldMoveInput}
+            score={score}
+            timeLeft={timeLeft}
             onDashStart={playDash}
             onTag={(chainSize) => {
               const multiPhrase = strings.multiTagPhrases[chainSize];
