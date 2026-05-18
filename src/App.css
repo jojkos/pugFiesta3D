@@ -228,18 +228,19 @@ body {
 }
 
 .menu-logo {
-  width: 140px;
+  width: 162px;
   height: auto;
   flex: 0 0 auto;
   filter: drop-shadow(0 8px 18px rgba(91, 58, 163, 0.18));
   user-select: none;
   pointer-events: none;
-  animation: menuLogoPulse 2.6s ease-in-out infinite;
+  animation: menuLogoPulse 2.1s ease-in-out infinite;
+  transform-origin: center center;
 }
 
 @keyframes menuLogoPulse {
-  0%, 100% { transform: scale(1) rotate(-1deg); }
-  50% { transform: scale(1.04) rotate(1deg); }
+  0%, 100% { transform: scale(0.97) rotate(-2.5deg); }
+  50% { transform: scale(1.09) rotate(2.5deg); }
 }
 
 .menu-info {
@@ -1004,7 +1005,7 @@ body {
     gap: 8px;
   }
   .menu-logo {
-    width: 128px;
+    width: 148px;
   }
   .menu-title {
     font-size: 30px;
@@ -1982,7 +1983,7 @@ body {
     font-size: 28px;
   }
   .menu-logo {
-    width: 100px;
+    width: 116px;
   }
   .menu-actions {
     margin-top: 10px;
