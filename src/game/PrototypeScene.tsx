@@ -42,8 +42,11 @@ type PlayerState = {
 type TagBurstState = {
   active: boolean;
   age: number;
-  x: number;
-  z: number;
+  // Offset from the player at the moment of impact. The world position is
+  // computed each frame as (player.x + offsetX, player.z + offsetZ) so the
+  // ring follows the character if they slide forward during the latch.
+  offsetX: number;
+  offsetZ: number;
 };
 
 const BURST_COUNT = 6;
@@ -108,8 +111,8 @@ export function PrototypeScene({
     Array.from({ length: BURST_COUNT }, () => ({
       active: false,
       age: 0,
-      x: 0,
-      z: 0,
+      offsetX: 0,
+      offsetZ: 0,
     })),
   );
   const scratchVec2 = useRef(new Vector2());
@@ -412,7 +415,14 @@ export function PrototypeScene({
             npc.dirZ = playerData.facingZ;
             npcActions.current[index] = 'react';
             hitstopTime.current = HITSTOP_DURATION;
-            spawnBurst(burstStates.current, npc.x, npc.z);
+            // Store the burst as an offset from the player's current position
+            // so the ring follows the character during the latch instead of
+            // sticking to where they were at the moment of impact.
+            spawnBurst(
+              burstStates.current,
+              npc.x - playerData.x,
+              npc.z - playerData.z,
+            );
 
             if (playerData.latchedNpcIds.length >= MAX_SIMULTANEOUS_LATCHES) {
               playerData.dashTime = 0;
@@ -586,7 +596,11 @@ export function PrototypeScene({
       }
 
       burstGroup.visible = true;
-      burstGroup.position.set(burst.x, 0.05, burst.z);
+      burstGroup.position.set(
+        playerData.x + burst.offsetX,
+        0.05,
+        playerData.z + burst.offsetZ,
+      );
       const radius = MathUtils.lerp(0.4, 1.9, t);
       ring.scale.setScalar(radius);
       const material = ring.material as { opacity: number; transparent: boolean };
@@ -688,12 +702,16 @@ export function PrototypeScene({
   );
 }
 
-function spawnBurst(bursts: TagBurstState[], x: number, z: number) {
+function spawnBurst(
+  bursts: TagBurstState[],
+  offsetX: number,
+  offsetZ: number,
+) {
   const burst = bursts.find((item) => !item.active) ?? bursts[0];
   burst.active = true;
   burst.age = 0;
-  burst.x = x;
-  burst.z = z;
+  burst.offsetX = offsetX;
+  burst.offsetZ = offsetZ;
 }
 
 function createPlayerState(): PlayerState {
