@@ -23,6 +23,11 @@ export type NpcState = {
   bob: number;
   speed: number;
   fleeBoost: number;
+  // Pre-latch position + age, used to lerp the pug from where it was caught
+  // into its formation slot over the first few frames of the latch.
+  latchOriginX: number;
+  latchOriginZ: number;
+  latchAge: number;
 };
 
 export type NpcVariant = {
