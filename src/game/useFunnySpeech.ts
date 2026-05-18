@@ -43,8 +43,8 @@ export const DEFAULT_VOICE_ID = defaultVoiceForLang(DEFAULT_LANG);
 // browser IP is needed. Rotate the key if abuse appears, and keep this on the
 // cheapest plan.
 const ELEVENLABS_ENDPOINT = 'https://api.elevenlabs.io/v1/text-to-speech';
-const MODEL_ID = 'eleven_flash_v2_5';
-const CACHE_NAME = 'pug-banger-fiesta-voice-v1';
+const MODEL_ID = 'eleven_multilingual_v2';
+const CACHE_NAME = 'pug-banger-fiesta-voice-v2';
 
 const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined;
 
