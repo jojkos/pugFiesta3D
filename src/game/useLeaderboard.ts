@@ -42,9 +42,13 @@ export function useLeaderboard(topN = 10, refreshKey = 0): LeaderboardState {
 
   const submit = useCallback<LeaderboardState['submit']>(async ({ name, score }) => {
     const client = getSupabase();
-    if (!client) return null;
+    if (!client) {
+      setError('Supabase not configured');
+      return null;
+    }
     const trimmedName = name.trim().slice(0, MAX_NAME_LEN) || 'Anonymouse';
-    const clampedScore = Math.max(0, Math.min(MAX_SCORE, Math.floor(score)));
+    const safeScore = Number.isFinite(score) ? score : 0;
+    const clampedScore = Math.max(0, Math.min(MAX_SCORE, Math.floor(safeScore)));
 
     // Skip insert if this exact name + score already exists — keeps the
     // earliest record (tie-break favors first to reach the score).

@@ -42,6 +42,7 @@ function buildReverbImpulse(context: AudioContext, duration = 1.4) {
 export function useArcadeAudio(muted: boolean) {
   const busRef = useRef<AudioBus | null>(null);
   const musicTimerRef = useRef<number | null>(null);
+  const scheduledTimeoutsRef = useRef<Set<number>>(new Set());
   const barRef = useRef(0);
   const mutedRef = useRef(muted);
 
@@ -53,48 +54,69 @@ export function useArcadeAudio(muted: boolean) {
     }
   }, [muted]);
 
-  const ensureBus = useCallback(async (): Promise<AudioBus | null> => {
-    if (typeof globalThis.window === 'undefined') {
-      return null;
-    }
+  const createBus = useCallback((): AudioBus | null => {
+    if (typeof globalThis.window === 'undefined') return null;
+    if (busRef.current) return busRef.current;
 
-    if (!busRef.current) {
-      const AudioCtor =
-        globalThis.AudioContext ||
-        (globalThis as unknown as { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext;
-      if (!AudioCtor) {
-        return null;
-      }
+    const AudioCtor =
+      globalThis.AudioContext ||
+      (globalThis as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioCtor) return null;
 
-      const context = new AudioCtor();
-      const master = context.createGain();
-      master.gain.value = mutedRef.current ? 0 : 0.9;
-      master.connect(context.destination);
+    const context = new AudioCtor();
+    const master = context.createGain();
+    master.gain.value = mutedRef.current ? 0 : 0.9;
+    master.connect(context.destination);
 
-      const fxBus = context.createGain();
-      fxBus.gain.value = 0.85;
-      fxBus.connect(master);
+    const fxBus = context.createGain();
+    fxBus.gain.value = 0.85;
+    fxBus.connect(master);
 
-      const musicBus = context.createGain();
-      musicBus.gain.value = 0.95;
-      musicBus.connect(master);
+    const musicBus = context.createGain();
+    musicBus.gain.value = 0.95;
+    musicBus.connect(master);
 
-      const reverb = context.createConvolver();
-      reverb.buffer = buildReverbImpulse(context);
-      const reverbGain = context.createGain();
-      reverbGain.gain.value = 0.18;
-      reverb.connect(reverbGain);
-      reverbGain.connect(master);
+    const reverb = context.createConvolver();
+    reverb.buffer = buildReverbImpulse(context);
+    const reverbGain = context.createGain();
+    reverbGain.gain.value = 0.18;
+    reverb.connect(reverbGain);
+    reverbGain.connect(master);
 
-      busRef.current = { context, master, fxBus, musicBus, reverb };
-    }
-
-    if (busRef.current.context.state === 'suspended') {
-      await busRef.current.context.resume();
-    }
-
+    busRef.current = { context, master, fxBus, musicBus, reverb };
     return busRef.current;
+  }, []);
+
+  // Synchronous resume — call directly inside a user-gesture handler (e.g. the
+  // Start button onClick) so iOS Safari counts it as a real user-activated
+  // resume. Awaiting an ensureBus() chain instead loses the gesture and the
+  // first round plays silently on iOS.
+  const resumeAudio = useCallback(() => {
+    const bus = createBus();
+    if (bus && bus.context.state === 'suspended') {
+      // Returning a promise we don't await is fine; the resume itself happens
+      // synchronously inside the gesture.
+      void bus.context.resume();
+    }
+  }, [createBus]);
+
+  const ensureBus = useCallback(async (): Promise<AudioBus | null> => {
+    const bus = createBus();
+    if (!bus) return null;
+    if (bus.context.state === 'suspended') {
+      await bus.context.resume();
+    }
+    return bus;
+  }, [createBus]);
+
+  const trackTimeout = useCallback((handler: () => void, ms: number) => {
+    const id = globalThis.setTimeout(() => {
+      scheduledTimeoutsRef.current.delete(id);
+      handler();
+    }, ms);
+    scheduledTimeoutsRef.current.add(id);
+    return id;
   }, []);
 
   const playTone = useCallback(
@@ -137,9 +159,13 @@ export function useArcadeAudio(muted: boolean) {
       filterNode.frequency.setValueAtTime(filter, now);
       filterNode.Q.value = 0.7;
 
-      gainNode.gain.setValueAtTime(0.0001, now);
-      gainNode.gain.exponentialRampToValueAtTime(gain, now + attack);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      // Linear ramps in/out — `exponentialRampToValueAtTime(0, ...)` is
+      // illegal, and ramping to 0.0001 then back down to 0.0001 produces
+      // audible Safari clicks and occasional NaN gain nodes.
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(gain, now + attack);
+      gainNode.gain.setValueAtTime(gain, now + duration * 0.6);
+      gainNode.gain.linearRampToValueAtTime(0, now + duration);
 
       oscillator.connect(filterNode);
       filterNode.connect(gainNode);
@@ -199,9 +225,10 @@ export function useArcadeAudio(muted: boolean) {
       filter.frequency.setValueAtTime(filterFrequency, now);
       filter.Q.value = Q;
 
-      gainNode.gain.setValueAtTime(0.0001, now);
-      gainNode.gain.exponentialRampToValueAtTime(gain, now + 0.008);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(gain, now + 0.008);
+      gainNode.gain.setValueAtTime(gain, now + duration * 0.6);
+      gainNode.gain.linearRampToValueAtTime(0, now + duration);
 
       source.connect(filter);
       filter.connect(gainNode);
@@ -269,7 +296,7 @@ export function useArcadeAudio(muted: boolean) {
       gain: 0.05,
       type: 'triangle',
     });
-    globalThis.setTimeout(() => {
+    trackTimeout(() => {
       void playTone({
         frequency: 587.33,
         endFrequency: 783.99,
@@ -278,7 +305,7 @@ export function useArcadeAudio(muted: boolean) {
         type: 'sine',
       });
     }, 110);
-    globalThis.setTimeout(() => {
+    trackTimeout(() => {
       void playTone(
         {
           frequency: 783.99,
@@ -291,7 +318,7 @@ export function useArcadeAudio(muted: boolean) {
         0.45,
       );
     }, 240);
-  }, [playTone]);
+  }, [playTone, trackTimeout]);
 
   const playRoundEnd = useCallback(() => {
     void playTone({
@@ -302,7 +329,7 @@ export function useArcadeAudio(muted: boolean) {
       type: 'sine',
       attack: 0.02,
     });
-    globalThis.setTimeout(() => {
+    trackTimeout(() => {
       void playTone({
         frequency: 392,
         endFrequency: 196,
@@ -312,7 +339,7 @@ export function useArcadeAudio(muted: boolean) {
         attack: 0.03,
       });
     }, 90);
-  }, [playTone]);
+  }, [playTone, trackTimeout]);
 
   const playCountdownTick = useCallback(() => {
     void playTone({
@@ -330,6 +357,10 @@ export function useArcadeAudio(muted: boolean) {
       globalThis.clearInterval(musicTimerRef.current);
       musicTimerRef.current = null;
     }
+    // Cancel any in-flight per-tone setTimeouts so the last 1–2 notes don't
+    // leak after a pause / round end.
+    scheduledTimeoutsRef.current.forEach((id) => globalThis.clearTimeout(id));
+    scheduledTimeoutsRef.current.clear();
     barRef.current = 0;
   }, []);
 
@@ -337,7 +368,7 @@ export function useArcadeAudio(muted: boolean) {
     (active: boolean) => {
       stopMusic();
 
-      if (!active || typeof globalThis.window === 'undefined') {
+      if (!active || globalThis.window === undefined) {
         return;
       }
 
@@ -345,7 +376,7 @@ export function useArcadeAudio(muted: boolean) {
         const progression =
           MUSIC_PROGRESSION[barRef.current % MUSIC_PROGRESSION.length];
         progression.forEach((frequency, step) => {
-          globalThis.setTimeout(() => {
+          trackTimeout(() => {
             void playTone(
               {
                 frequency,
@@ -380,17 +411,33 @@ export function useArcadeAudio(muted: boolean) {
       playBar();
       musicTimerRef.current = globalThis.setInterval(playBar, 880);
     },
-    [playTone, stopMusic],
+    [playTone, stopMusic, trackTimeout],
   );
 
-  const guard = useCallback(
-    (action: () => void) => {
-      if (!mutedRef.current) {
-        action();
+  // Stop music + close the AudioContext on unmount so we don't leak across
+  // HMR reloads (Chrome throttles after ~6 live contexts).
+  useEffect(() => {
+    return () => {
+      stopMusic();
+      const bus = busRef.current;
+      if (bus) {
+        void bus.context.close().catch(() => {});
+        busRef.current = null;
       }
-    },
-    [],
-  );
+    };
+  }, [stopMusic]);
+
+  const guard = useCallback((action: () => void | Promise<void>) => {
+    if (mutedRef.current) return;
+    try {
+      const result = action();
+      if (result instanceof Promise) {
+        result.catch(() => {});
+      }
+    } catch {
+      // Swallow — audio failures should never crash gameplay.
+    }
+  }, []);
 
   return useMemo(
     () => ({
@@ -400,6 +447,7 @@ export function useArcadeAudio(muted: boolean) {
       playRoundEnd: () => guard(playRoundEnd),
       playCountdownTick: () => guard(playCountdownTick),
       setRoundLoopActive,
+      resumeAudio,
     }),
     [
       guard,
@@ -409,6 +457,7 @@ export function useArcadeAudio(muted: boolean) {
       playRoundEnd,
       playCountdownTick,
       setRoundLoopActive,
+      resumeAudio,
     ],
   );
 }

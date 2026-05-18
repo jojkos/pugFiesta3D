@@ -4,7 +4,6 @@ export const DEFAULT_LANG: Lang = 'cs';
 export const SUPPORTED_LANGS: Lang[] = ['cs', 'en'];
 
 const cs = {
-  hud: { score: 'skóre', time: 'čas', best: 'rekord' },
   controls: {
     enableSound: 'Zapnout zvuk',
     muteSound: 'Ztlumit zvuk',
@@ -17,9 +16,6 @@ const cs = {
   menu: {
     eyebrow: 'mopsí orgie',
     lede: 'Silnější pes mrdá, tak vyraž obskočit co nejvíc čubiček!',
-    jerseySwatchLabel: (color: string) => `Použít dres ${color}`,
-    jerseyCustom: 'Vyber vlastní barvu',
-    teamPickerTitle: 'Tým',
     teamBadgeLabel: (name: string) => `Vybrat tým ${name}`,
     teamCustom: 'Vlastní',
     teamTuning: 'Doladění',
@@ -60,6 +56,7 @@ const cs = {
     showButton: 'Mopsíň slávy',
     eyebrow: 'žebříček',
     back: 'Zpět do menu',
+    you: 'TY',
   },
   mainMenu: 'Hlavní menu',
   rotate: {
@@ -104,7 +101,6 @@ const cs = {
 };
 
 const en: typeof cs = {
-  hud: { score: 'score', time: 'time', best: 'best' },
   controls: {
     enableSound: 'Enable sound',
     muteSound: 'Mute sound',
@@ -117,9 +113,6 @@ const en: typeof cs = {
   menu: {
     eyebrow: 'pug orgy arcade',
     lede: 'Stick that snout out, time the pounce, hump the leaderboard.',
-    jerseySwatchLabel: (color: string) => `Use ${color} jersey`,
-    jerseyCustom: 'Pick custom jersey color',
-    teamPickerTitle: 'Team',
     teamBadgeLabel: (name: string) => `Pick team ${name}`,
     teamCustom: 'Custom',
     teamTuning: 'Tweak',
@@ -160,6 +153,7 @@ const en: typeof cs = {
     showButton: 'Hall of fame',
     eyebrow: 'leaderboard',
     back: 'Back to menu',
+    you: 'YOU',
   },
   mainMenu: 'Main menu',
   rotate: {

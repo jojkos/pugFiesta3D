@@ -48,8 +48,29 @@ const CACHE_NAME = 'pug-banger-fiesta-voice-v1';
 
 const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined;
 
+const MEMORY_CACHE_MAX = 64;
 const memoryCache = new Map<string, ArrayBuffer>();
 const inflight = new Map<string, Promise<ArrayBuffer | null>>();
+
+function memoryCacheSet(key: string, buf: ArrayBuffer) {
+  // Simple LRU-ish cap: evict oldest insertion when full.
+  if (memoryCache.size >= MEMORY_CACHE_MAX) {
+    const oldest = memoryCache.keys().next().value;
+    if (oldest !== undefined) memoryCache.delete(oldest);
+  }
+  memoryCache.set(key, buf);
+}
+
+let cachedVoices: SpeechSynthesisVoice[] = [];
+function loadBrowserVoices() {
+  if (globalThis.window === undefined || !globalThis.speechSynthesis) return;
+  cachedVoices = globalThis.speechSynthesis.getVoices();
+}
+if (globalThis.window !== undefined && globalThis.speechSynthesis) {
+  loadBrowserVoices();
+  // Chrome/Firefox return [] from getVoices() until this event fires.
+  globalThis.speechSynthesis.addEventListener?.('voiceschanged', loadBrowserVoices);
+}
 
 function cacheUrl(voiceId: string, text: string) {
   return `https://pug-banger-fiesta.local/voice/${voiceId}/${encodeURIComponent(text)}`;
@@ -86,7 +107,7 @@ async function fetchPhrase(
         const hit = await cache.match(cacheUrlKey);
         if (hit) {
           const buf = await hit.arrayBuffer();
-          memoryCache.set(key, buf);
+          memoryCacheSet(key, buf);
           return buf;
         }
       } catch {
@@ -116,7 +137,7 @@ async function fetchPhrase(
     if (!res.ok) return null;
 
     const buf = await res.arrayBuffer();
-    memoryCache.set(key, buf);
+    memoryCacheSet(key, buf);
 
     if ('caches' in globalThis) {
       try {
@@ -145,14 +166,23 @@ async function fetchPhrase(
 
 function speakWithBrowser(text: string, lang: Lang) {
   if (globalThis.window === undefined || !globalThis.speechSynthesis) return;
-  globalThis.speechSynthesis.cancel();
+  // Only cancel if something is actively speaking — slamming cancel() on every
+  // call wedges the queue on Safari and produces silent gaps on Chrome.
+  if (globalThis.speechSynthesis.speaking) {
+    globalThis.speechSynthesis.cancel();
+  }
   const utterance = new SpeechSynthesisUtterance(text);
   const targetLang = BROWSER_LANG[lang];
   const langPrefix = LANG_CODE[lang];
   utterance.lang = targetLang;
   utterance.pitch = 1 + (Math.random() - 0.5) * 0.35;
   utterance.rate = 1.08;
-  const voices = globalThis.speechSynthesis.getVoices();
+  // Use the cached voice list; getVoices() returns [] on first call in
+  // Chrome/Firefox before `voiceschanged` fires.
+  if (cachedVoices.length === 0) loadBrowserVoices();
+  const voices = cachedVoices.length > 0
+    ? cachedVoices
+    : globalThis.speechSynthesis.getVoices();
   const voice =
     voices.find((item) => item.lang.toLowerCase().startsWith(langPrefix)) ??
     voices[0];
@@ -200,6 +230,15 @@ async function playPhrase(
   currentUrl = url;
   const audio = new Audio(url);
   currentAudio = audio;
+
+  // Revoke the blob URL once playback finishes or errors — otherwise the
+  // final phrase's blob is leaked for the lifetime of the page.
+  const cleanup = () => {
+    URL.revokeObjectURL(url);
+    if (currentUrl === url) currentUrl = null;
+  };
+  audio.addEventListener('ended', cleanup, { once: true });
+  audio.addEventListener('error', cleanup, { once: true });
 
   try {
     await audio.play();

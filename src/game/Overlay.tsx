@@ -6,6 +6,7 @@ import type { GameMode } from './types';
 import type { VoiceCharacter } from './useFunnySpeech';
 import { Leaderboard, MiniLeaderboard } from './Leaderboard';
 import { SUPPORTED_LANGS, type Lang, type Strings } from './i18n';
+import { ROUND_DURATION } from './config';
 
 const LANG_FLAGS: Record<Lang, string> = {
   cs: '🇨🇿',
@@ -170,7 +171,7 @@ function ChipPopover({
               <button
                 type="button"
                 className="menu-pop-close"
-                aria-label="Close"
+                aria-label={label}
                 onClick={close}
               >
                 ✕
@@ -187,6 +188,7 @@ function ChipPopover({
 
 export function Overlay({
   bestScore,
+  bestBeforeRound,
   countdown,
   mode,
   paused,
@@ -213,11 +215,11 @@ export function Overlay({
   onSubmitScore,
 }: Readonly<{
   bestScore: number;
+  bestBeforeRound: number;
   countdown: number | null;
   mode: GameMode;
   paused: boolean;
   score: number;
-  timeLeft: number;
   onStartRound: () => void;
   isMuted: boolean;
   jerseyColor: string;
@@ -264,9 +266,10 @@ export function Overlay({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (submitState !== 'idle') return;
-    setSubmitState('submitting');
     const trimmed = pendingName.trim();
-    if (typeof window !== 'undefined' && trimmed) {
+    if (!trimmed) return;
+    setSubmitState('submitting');
+    if (typeof window !== 'undefined') {
       window.localStorage.setItem('pug-banger-fiesta-player-name', trimmed);
     }
     await onSubmitScore(trimmed);
@@ -282,21 +285,23 @@ export function Overlay({
     voiceCharacters[0]?.label ??
     '';
 
-  const isNewBest = mode === 'gameOver' && score > 0 && score >= bestScore;
+  const isNewBest = mode === 'gameOver' && score > 0 && score > bestBeforeRound;
 
   return (
     <>
 
       <div className="control-cluster">
         <button
+          type="button"
           className="utility-button"
           aria-label={isMuted ? strings.controls.enableSound : strings.controls.muteSound}
           onClick={onToggleMute}
         >
           {isMuted ? '🔇' : '🔊'}
         </button>
-        {mode === 'playing' && (
+        {mode === 'playing' && countdown === null && (
           <button
+            type="button"
             className="utility-button"
             aria-label={paused ? strings.controls.resume : strings.controls.pause}
             onClick={onTogglePause}
@@ -323,6 +328,7 @@ export function Overlay({
                 <h2 className="lb-title">{strings.leaderboard.title}</h2>
               </div>
               <button
+                type="button"
                 className="lb-close"
                 aria-label={strings.leaderboard.back}
                 onClick={() => setMenuLeaderboardOpen(false)}
@@ -341,10 +347,11 @@ export function Overlay({
             />
 
             <div className="lb-actions">
-              <button className="lb-btn-prim" onClick={onStartRound}>
+              <button type="button" className="lb-btn-prim" onClick={onStartRound}>
                 ▶ {strings.menu.start}
               </button>
               <button
+                type="button"
                 className="lb-btn-sec"
                 onClick={() => setMenuLeaderboardOpen(false)}
               >
@@ -374,7 +381,8 @@ export function Overlay({
               <img
                 className="menu-logo"
                 src="/assets/images/logo.png"
-                alt="Pug Banger Fiesta"
+                alt=""
+                aria-hidden="true"
               />
               <div className="menu-info">
                 <p className="menu-eye">{strings.menu.eyebrow}</p>
@@ -517,10 +525,11 @@ export function Overlay({
             </div>
 
             <div className="menu-actions">
-              <button className="menu-start" onClick={onStartRound}>
+              <button type="button" className="menu-start" onClick={onStartRound}>
                 ▶ {strings.menu.start}
               </button>
               <button
+                type="button"
                 className="menu-hall"
                 onClick={() => setMenuLeaderboardOpen(true)}
               >
@@ -603,10 +612,10 @@ export function Overlay({
             <h2 className="pa-title">{strings.pause.title}</h2>
             <p className="pa-lede">{strings.pause.lede}</p>
             <div className="pa-actions">
-              <button className="pa-btn-prim" onClick={onTogglePause}>
+              <button type="button" className="pa-btn-prim" onClick={onTogglePause}>
                 ▶ {strings.pause.resume}
               </button>
-              <button className="pa-btn-sec" onClick={onQuitToMenu}>
+              <button type="button" className="pa-btn-sec" onClick={onQuitToMenu}>
                 {strings.mainMenu}
               </button>
             </div>
@@ -641,7 +650,7 @@ export function Overlay({
               <div className="res-stat">
                 <span>{strings.results.pace}</span>
                 <strong>
-                  {(score / 45).toFixed(2)}
+                  {(score / ROUND_DURATION).toFixed(2)}
                   {strings.results.paceUnit}
                 </strong>
               </div>
@@ -674,7 +683,7 @@ export function Overlay({
                 <button
                   type="submit"
                   className="res-submit-btn"
-                  disabled={submitState !== 'idle'}
+                  disabled={submitState !== 'idle' || pendingName.trim() === ''}
                 >
                   {submitState === 'submitting'
                     ? strings.leaderboard.submitting
@@ -688,10 +697,10 @@ export function Overlay({
             )}
 
             <div className="res-actions">
-              <button className="res-btn-prim" onClick={onStartRound}>
+              <button type="button" className="res-btn-prim" onClick={onStartRound}>
                 ▶ {strings.results.again}
               </button>
-              <button className="res-btn-sec" onClick={onQuitToMenu}>
+              <button type="button" className="res-btn-sec" onClick={onQuitToMenu}>
                 {strings.mainMenu}
               </button>
             </div>

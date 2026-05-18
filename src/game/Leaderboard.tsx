@@ -114,6 +114,9 @@ export function Leaderboard({
                 <span className="lb-name-wrap">
                   <span className="lb-name" title={entry.player_name}>
                     {entry.player_name}
+                    {isYou && (
+                      <span className="lb-name-you-tag">· {t.you}</span>
+                    )}
                   </span>
                   <small className="lb-date">
                     {formatEntryDate(entry.created_at, lang)}

@@ -3,7 +3,7 @@ import { OrthographicCamera } from '@react-three/drei';
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import { CAMERA_POSITION, ROUND_DURATION } from './game/config';
-import { screenInputToWorld, clampInput } from './game/input';
+import { clampInput } from './game/input';
 import { Overlay } from './game/Overlay';
 import { PrototypeScene } from './game/PrototypeScene';
 import { TouchControls } from './game/TouchControls';
@@ -35,6 +35,7 @@ function App() {
     playRoundEnd,
     playCountdownTick,
     setRoundLoopActive,
+    resumeAudio,
   } = useArcadeAudio(isMuted);
   const [lang, setLang] = useState<Lang>(() => {
     if (globalThis.window === undefined) return DEFAULT_LANG;
@@ -42,8 +43,17 @@ function App() {
     if (stored && (SUPPORTED_LANGS as string[]).includes(stored)) {
       return stored as Lang;
     }
+    const browser = globalThis.navigator?.language?.toLowerCase() ?? '';
+    if (browser.startsWith('cs')) return 'cs';
+    if (browser.startsWith('en')) return 'en';
     return DEFAULT_LANG;
   });
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = lang;
+    }
+  }, [lang]);
   const strings = getStrings(lang);
   const [voiceId, setVoiceId] = useState(() => {
     const fallback = defaultVoiceForLang(lang);
@@ -62,6 +72,7 @@ function App() {
 
     return Number(window.localStorage.getItem('pug-banger-fiesta-best-score') ?? 0) || 0;
   });
+  const [bestBeforeRound, setBestBeforeRound] = useState(bestScore);
   const [jerseyColor, setJerseyColor] = useState(() => {
     if (typeof window === 'undefined') {
       return '#f5f1ea';
@@ -112,14 +123,29 @@ function App() {
   });
 
   useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName;
+      return (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        target.isContentEditable
+      );
+    };
+
     const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
       const key = event.key.toLowerCase();
       if (
-        key === ' ' ||
-        key === 'arrowup' ||
-        key === 'arrowdown' ||
-        key === 'arrowleft' ||
-        key === 'arrowright'
+        mode === 'playing' &&
+        (key === ' ' ||
+          key === 'arrowup' ||
+          key === 'arrowdown' ||
+          key === 'arrowleft' ||
+          key === 'arrowright')
       ) {
         event.preventDefault();
       }
@@ -151,6 +177,9 @@ function App() {
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
       const key = event.key.toLowerCase();
       if (key === 'w' || key === 'arrowup') {
         setKeys((current) => ({ ...current, up: false }));
@@ -265,15 +294,21 @@ function App() {
     x: keyboardX + joystick.x,
     y: keyboardY + joystick.y,
   });
-  const worldMoveInput = screenInputToWorld(moveInput);
+  // Screen Y (up = +1) maps to world -Z, since the camera looks down -Z.
+  const worldMoveInput = { x: moveInput.x, y: -moveInput.y };
 
   const startRound = () => {
+    // Resume the AudioContext synchronously inside the click handler so iOS
+    // Safari treats it as a user-gesture activation. Awaiting elsewhere loses
+    // the gesture and the first round goes silent.
+    resumeAudio();
     requestImmersiveMode();
     playRoundStart();
     setScore(0);
     setTimeLeft(ROUND_DURATION);
     setJoystick({ x: 0, y: 0 });
     setDashNonce(0);
+    setBestBeforeRound(bestScore);
     setCountdown(3);
     setPaused(false);
     setRoundId((value) => value + 1);
@@ -340,6 +375,7 @@ function App() {
 
         <Overlay
           bestScore={bestScore}
+          bestBeforeRound={bestBeforeRound}
           countdown={countdown}
           isMuted={isMuted}
           jerseyColor={jerseyColor}
@@ -394,7 +430,6 @@ function App() {
           voiceCharacters={getVoicesForLang(lang)}
           paused={paused}
           score={score}
-          timeLeft={timeLeft}
           leaderboardEntries={leaderboardEntries}
           leaderboardLoading={leaderboardLoading}
           leaderboardError={leaderboardError}
