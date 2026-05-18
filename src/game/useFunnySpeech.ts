@@ -11,15 +11,15 @@ export type VoiceCharacter = {
 
 export const VOICE_CHARACTERS: Record<Lang, VoiceCharacter[]> = {
   cs: [
-    { id: 'george', label: '🎩 Trhač', voiceId: 'JBFqnCBsd6RMkjVDRZzb' },
+    { id: 'george', label: '🎩 Trhač', voiceId: 'nPczCjzI2devNBz1zQrb' },
     { id: 'lily', label: '💃 Čubka', voiceId: 'pFZP5JQG7iQjIQuC4Bku' },
-    { id: 'brian', label: '🎙️ Retrívr', voiceId: 'nPczCjzI2devNBz1zQrb' },
+    { id: 'brian', label: '🎙️ Retrívr', voiceId: 'JBFqnCBsd6RMkjVDRZzb' },
     { id: 'bill', label: '🪖 Doga', voiceId: 'pqHfZKP75CvOlQylNhV4' },
   ],
   en: [
-    { id: 'george', label: '🎩 Posh Pug', voiceId: 'JBFqnCBsd6RMkjVDRZzb' },
+    { id: 'george', label: '🎩 Posh Pug', voiceId: 'nPczCjzI2devNBz1zQrb' },
     { id: 'lily', label: '💃 Sassy Pug', voiceId: 'pFZP5JQG7iQjIQuC4Bku' },
-    { id: 'brian', label: '🎙️ Trailer Pug', voiceId: 'nPczCjzI2devNBz1zQrb' },
+    { id: 'brian', label: '🎙️ Trailer Pug', voiceId: 'JBFqnCBsd6RMkjVDRZzb' },
     { id: 'bill', label: '🪖 Drill Sgt', voiceId: 'pqHfZKP75CvOlQylNhV4' },
   ],
 };
