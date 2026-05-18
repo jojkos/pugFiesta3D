@@ -61,6 +61,8 @@ export function PrototypeScene({
   jerseyAccentColor,
   score,
   timeLeft,
+  baseZoom,
+  introZoomOut,
 }: {
   isPlaying: boolean;
   moveInput: AnalogInput;
@@ -72,6 +74,8 @@ export function PrototypeScene({
   jerseyAccentColor: string;
   score: number;
   timeLeft: number;
+  baseZoom: number;
+  introZoomOut: boolean;
 }) {
   const { camera } = useThree();
   const player = useRef<Group>(null);
@@ -265,6 +269,36 @@ export function PrototypeScene({
       }
 
       npcData.forEach((npc, index) => {
+        if (npc.isLatched) {
+          // Tick cooldown while latched so respawn timing stays consistent
+          // with the unlatched path; isLatched takes precedence over cooldown
+          // for positioning so the pug actually follows the player.
+          npc.taggedCooldown = Math.max(0, npc.taggedCooldown - delta);
+
+          const slot = Math.max(0, playerData.latchedNpcIds.indexOf(index));
+          const forwardOffset = 0.65;
+          const sideStep = 0.5;
+          const sideOffset =
+            slot === 0 ? 0 : (slot % 2 === 1 ? 1 : -1) * sideStep * Math.ceil(slot / 2);
+          const perpX = -playerData.facingZ;
+          const perpZ = playerData.facingX;
+          const targetX =
+            playerData.x +
+            playerData.facingX * forwardOffset +
+            perpX * sideOffset;
+          const targetZ =
+            playerData.z +
+            playerData.facingZ * forwardOffset +
+            perpZ * sideOffset;
+          const clampedLatch = clampToArena(targetX, targetZ);
+          npc.x = clampedLatch.x;
+          npc.z = clampedLatch.z;
+          npc.dirX = playerData.facingX;
+          npc.dirZ = playerData.facingZ;
+          npcActions.current[index] = 'react';
+          return;
+        }
+
         if (npc.taggedCooldown > 0) {
           npc.taggedCooldown = Math.max(0, npc.taggedCooldown - delta);
 
@@ -275,25 +309,6 @@ export function PrototypeScene({
             );
             npcActions.current[index] = 'idle';
           }
-          return;
-        }
-
-        if (npc.isLatched) {
-          // Drag latched NPCs in a trail behind the player so the dash can
-          // continue (chain-tagging) without a snap-back when it ends.
-          const slot = playerData.latchedNpcIds.indexOf(index);
-          const trail = 0.85 + Math.max(0, slot) * 0.6;
-          const desiredX = playerData.x - playerData.facingX * trail;
-          const desiredZ = playerData.z - playerData.facingZ * trail;
-          const clampedTrail = clampToArena(desiredX, desiredZ);
-          npc.x = MathUtils.lerp(npc.x, clampedTrail.x, 0.55);
-          npc.z = MathUtils.lerp(npc.z, clampedTrail.z, 0.55);
-          const lookX = playerData.x - npc.x;
-          const lookZ = playerData.z - npc.z;
-          const lookLen = Math.max(0.001, Math.hypot(lookX, lookZ));
-          npc.dirX = lookX / lookLen;
-          npc.dirZ = lookZ / lookLen;
-          npcActions.current[index] = 'react';
           return;
         }
 
@@ -344,6 +359,7 @@ export function PrototypeScene({
             npc.z - playerData.z,
           );
           if (postMoveDistance < TAG_RADIUS) {
+            const slot = playerData.latchedNpcIds.length;
             playerData.latchedNpcIds.push(index);
             onTag(playerData.latchedNpcIds.length);
             playerData.latchTime = LATCH_DURATION;
@@ -351,6 +367,21 @@ export function PrototypeScene({
             playerData.velocityZ = 0;
             npc.isLatched = true;
             npc.taggedCooldown = NPC_RESPAWN_DELAY;
+            // Snap NPC into the latched pose on the same frame as the tag.
+            const forwardOffset = 0.65;
+            const sideStep = 0.5;
+            const sideOffset =
+              slot === 0 ? 0 : (slot % 2 === 1 ? 1 : -1) * sideStep * Math.ceil(slot / 2);
+            const perpX = -playerData.facingZ;
+            const perpZ = playerData.facingX;
+            const snapTarget = clampToArena(
+              playerData.x + playerData.facingX * forwardOffset + perpX * sideOffset,
+              playerData.z + playerData.facingZ * forwardOffset + perpZ * sideOffset,
+            );
+            npc.x = snapTarget.x;
+            npc.z = snapTarget.z;
+            npc.dirX = playerData.facingX;
+            npc.dirZ = playerData.facingZ;
             npcActions.current[index] = 'react';
             hitstopTime.current = HITSTOP_DURATION;
             cameraShake.current = 1;
@@ -408,6 +439,17 @@ export function PrototypeScene({
       cameraFocus.current.z + shakeOffsetZ,
     );
 
+    // Intro zoom: hold camera zoomed-out during the 3-2-1 countdown, then
+    // smoothly zoom in to the responsive base zoom once the round starts.
+    if ('zoom' in camera && typeof camera.zoom === 'number') {
+      const targetZoom = introZoomOut ? baseZoom * 0.62 : baseZoom;
+      const eased = MathUtils.lerp(camera.zoom, targetZoom, introZoomOut ? 0.2 : 0.045);
+      if (Math.abs(eased - camera.zoom) > 0.001) {
+        camera.zoom = eased;
+        camera.updateProjectionMatrix();
+      }
+    }
+
     if (player.current) {
       const dashProgress =
         playerData.dashTime > 0 ? 1 - playerData.dashTime / DASH_DURATION : 0;
@@ -418,10 +460,29 @@ export function PrototypeScene({
           ? Math.sin((playerData.latchTime / LATCH_DURATION) * Math.PI) * 0.12
           : 0;
 
+      // Hump-thrust pulse during the latch hold: oscillate the player toward
+      // the latched NPC in front of them at ~5 Hz with a small forward push.
+      let thrustX = 0;
+      let thrustZ = 0;
+      let thrustBob = 0;
+      let thrustSquash = 1;
+      if (playerData.latchTime > 0) {
+        const phase = (LATCH_DURATION - playerData.latchTime) * 30;
+        const wave = Math.sin(phase);
+        // half-wave thrust: only push forward, never away (max 0.18 toward NPC)
+        const thrustAmt = Math.max(0, wave) * 0.18;
+        thrustX = playerData.facingX * thrustAmt;
+        thrustZ = playerData.facingZ * thrustAmt;
+        // small vertical bob synced with thrusts
+        thrustBob = Math.max(0, wave) * 0.06;
+        // squish forward when thrusting in
+        thrustSquash = 1 + Math.max(0, wave) * 0.09;
+      }
+
       player.current.position.set(
-        playerData.x,
-        0.02 + Math.sin(playerData.bob) * 0.015 + dashLift + latchLift,
-        playerData.z,
+        playerData.x + thrustX,
+        0.02 + Math.sin(playerData.bob) * 0.015 + dashLift + latchLift + thrustBob,
+        playerData.z + thrustZ,
       );
       player.current.rotation.y = MathUtils.lerp(
         player.current.rotation.y,
@@ -432,7 +493,7 @@ export function PrototypeScene({
 
       const squashScale =
         playerData.latchTime > 0
-          ? 1 + Math.sin((playerData.latchTime / LATCH_DURATION) * Math.PI) * 0.05
+          ? thrustSquash
           : playerData.dashTime > 0
             ? 1.04
             : 1;
@@ -440,7 +501,19 @@ export function PrototypeScene({
     }
 
     if (playerShadow.current) {
-      playerShadow.current.position.set(playerData.x, 0.03, playerData.z);
+      let shadowThrustX = 0;
+      let shadowThrustZ = 0;
+      if (playerData.latchTime > 0) {
+        const phase = (LATCH_DURATION - playerData.latchTime) * 30;
+        const thrustAmt = Math.max(0, Math.sin(phase)) * 0.18;
+        shadowThrustX = playerData.facingX * thrustAmt;
+        shadowThrustZ = playerData.facingZ * thrustAmt;
+      }
+      playerShadow.current.position.set(
+        playerData.x + shadowThrustX,
+        0.03,
+        playerData.z + shadowThrustZ,
+      );
       playerShadow.current.scale.setScalar(
         playerData.dashTime > 0 ? 1.18 : playerData.latchTime > 0 ? 0.9 : 1,
       );
@@ -457,11 +530,10 @@ export function PrototypeScene({
           0.02 + Math.sin(npc.bob) * 0.012 + (npc.isLatched ? 0.05 : 0),
           npc.z,
         );
-        group.rotation.y = MathUtils.lerp(
-          group.rotation.y,
-          Math.atan2(npc.dirX, npc.dirZ),
-          0.25,
-        );
+        const targetRotation = Math.atan2(npc.dirX, npc.dirZ);
+        group.rotation.y = npc.isLatched
+          ? targetRotation
+          : MathUtils.lerp(group.rotation.y, targetRotation, 0.25);
         const npcSquash = npc.isLatched
           ? 1 + Math.sin(state.clock.elapsedTime * 18) * 0.05
           : 1;

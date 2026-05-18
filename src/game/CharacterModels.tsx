@@ -309,11 +309,16 @@ export function PugCharacter({
         tiltX = -0.32;
         yOffset = 0.05;
       } else if (desired === 'latch') {
-        const wobble = Math.sin(proceduralPhase.current * 3) * 0.08;
+        const wobble = Math.sin(proceduralPhase.current * 5) * 0.06;
         scaleX = 1 + wobble;
-        scaleY = 1 - wobble;
+        scaleY = 1 - wobble * 1.6;
+        tiltX = -0.12 + wobble * 0.4;
       } else if (desired === 'react') {
-        scaleY = 1 + Math.sin(proceduralPhase.current * 4) * 0.1;
+        const pulse = Math.max(0, Math.sin(proceduralPhase.current * 5));
+        scaleY = 1 + pulse * 0.16;
+        scaleX = 1 - pulse * 0.06;
+        tiltX = -0.04 - pulse * 0.18;
+        yOffset = pulse * 0.04;
       }
 
       rootNode.position.y = yOffset;
