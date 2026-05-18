@@ -1,0 +1,176 @@
+// Pre-generates ElevenLabs mp3s for all (voice × Czech-phrase) combinations and
+// writes a manifest the runtime can consult before hitting the API.
+//
+// Usage: node scripts/generate-voice-cache.mjs
+//
+// Reads VITE_ELEVENLABS_API_KEY from .env. Existing files are skipped (re-runs
+// only generate missing combos), so it's safe to interrupt + resume.
+//
+// To force-regenerate a specific phrase, delete its .mp3 from
+// public/assets/voice/<voiceId>/<hash>.mp3 and re-run.
+
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__dirname, '..');
+
+const envContent = readFileSync(join(ROOT, '.env'), 'utf-8');
+const env = Object.fromEntries(
+  envContent
+    .split('\n')
+    .filter((l) => l.trim() && !l.startsWith('#'))
+    .map((l) => {
+      const idx = l.indexOf('=');
+      return [l.slice(0, idx).trim(), l.slice(idx + 1).trim().replace(/^["']|["']$/g, '')];
+    }),
+);
+
+const API_KEY = env.VITE_ELEVENLABS_API_KEY;
+if (!API_KEY) {
+  console.error('VITE_ELEVENLABS_API_KEY not found in .env');
+  process.exit(1);
+}
+
+const MODEL_ID = 'eleven_multilingual_v2';
+
+// Keep in sync with VOICE_CHARACTERS in src/game/useFunnySpeech.ts.
+// (cs + en use the same underlying ElevenLabs voice IDs.)
+const VOICES = [
+  { id: 'JBFqnCBsd6RMkjVDRZzb', label: 'Trhač / Posh Pug' },
+  { id: 'pFZP5JQG7iQjIQuC4Bku', label: 'Čubka / Sassy Pug' },
+  { id: 'nPczCjzI2devNBz1zQrb', label: 'Retrívr / Trailer Pug' },
+  { id: 'pqHfZKP75CvOlQylNhV4', label: 'Doga / Drill Sgt' },
+];
+
+// Keep each list in sync with the matching strings in src/game/i18n.ts:
+//   - multiTagPhrases[2], multiTagPhrases[3]
+//   - goalShout
+//   - all tagPhrases entries
+const PHRASES_BY_LANG = {
+  cs: [
+    'Trojka!',
+    'Grupáč!',
+    'Skóruje!',
+    'štěká, ale nekouše',
+    'utrhnem se ze řetězu',
+    'má naštěkáno do boudy!',
+    'silnější pes mrdá',
+    'beng beng beng, jak rej koranteng',
+    'vrtí ocasem, ta to chce',
+    'to je psina',
+    'viděl jsem, štěknul jsem, prcnul jsem',
+    'hlídej si ocas, jdu na věc',
+    'mrskej se ty čubičko!',
+    'štěknem si',
+    'epes rádes',
+  ],
+  en: [
+    'Threesome!',
+    'Gangbang!',
+    'Score!',
+    'Sit, stay... slay',
+    'Hot dog incoming!',
+    'Boss bitch',
+    'Sniffed it, liked it, marked it',
+    'Wiggle wiggle wiggle',
+    'Scooby dooby doo',
+    'Go pug yourself',
+    'Who let the dogs out',
+    'doggy style',
+    'Certified stud magnet',
+    'Not in heat, just hot as hell',
+    'hump first, ask names later',
+    'No leash, no shame, all stamina',
+  ],
+};
+
+function hashKey(voiceId, lang, text) {
+  return createHash('sha256')
+    .update(`${voiceId}:${lang}:${text}`)
+    .digest('hex')
+    .slice(0, 16);
+}
+
+async function generateOne(voiceId, lang, text) {
+  const hash = hashKey(voiceId, lang, text);
+  const relPath = `voice/${voiceId}/${hash}.mp3`;
+  const absPath = join(ROOT, 'public', 'assets', relPath);
+  if (existsSync(absPath)) {
+    return { relPath, skipped: true, chars: text.length };
+  }
+  const res = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+    {
+      method: 'POST',
+      headers: {
+        'xi-api-key': API_KEY,
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: MODEL_ID,
+        language_code: lang,
+      }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`ElevenLabs ${res.status}: ${await res.text()}`);
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  mkdirSync(dirname(absPath), { recursive: true });
+  writeFileSync(absPath, buf);
+  return { relPath, skipped: false, chars: text.length };
+}
+
+const manifest = {};
+let totalChars = 0;
+let generated = 0;
+let skipped = 0;
+let failed = 0;
+
+for (const { id: voiceId, label } of VOICES) {
+  for (const [lang, phrases] of Object.entries(PHRASES_BY_LANG)) {
+    console.log(`\n--- ${label} (${voiceId}) [${lang}] ---`);
+    for (const text of phrases) {
+      const key = `${voiceId}:${lang}:${text}`;
+      process.stdout.write(`  ${text} ... `);
+      try {
+        const result = await generateOne(voiceId, lang, text);
+        manifest[key] = result.relPath;
+        if (result.skipped) {
+          skipped += 1;
+          console.log('cached');
+        } else {
+          generated += 1;
+          totalChars += result.chars;
+          console.log(`ok (${result.chars} chars)`);
+        }
+        await new Promise((r) => setTimeout(r, 80));
+      } catch (err) {
+        failed += 1;
+        console.log(`FAIL: ${err.message}`);
+      }
+    }
+  }
+}
+
+const manifestTsPath = join(ROOT, 'src', 'game', 'voiceCacheManifest.ts');
+const manifestTs = `// Auto-generated by scripts/generate-voice-cache.mjs — do not edit by hand.
+// Maps "\${voiceId}:\${lang}:\${text}" → static asset path under public/assets/.
+export const VOICE_CACHE_MANIFEST: Readonly<Record<string, string>> = ${JSON.stringify(
+  manifest,
+  null,
+  2,
+)};
+`;
+writeFileSync(manifestTsPath, manifestTs);
+
+console.log(`\n========================================`);
+console.log(`Generated: ${generated} new files (${totalChars} characters)`);
+console.log(`Skipped:   ${skipped} already-cached files`);
+if (failed > 0) console.log(`Failed:    ${failed}`);
+console.log(`Manifest:  ${manifestTsPath}`);
