@@ -2054,4 +2054,32 @@ body {
     height: 122px;
     font-size: 2.6rem;
   }
+  .bmc-link img {
+    width: 120px;
+    height: 34px;
+  }
+}
+
+.bmc-link {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 40;
+  display: inline-flex;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(36, 16, 11, 0.25);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.bmc-link:hover,
+.bmc-link:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(36, 16, 11, 0.32);
+}
+
+.bmc-link img {
+  display: block;
+  width: 150px;
+  height: 42px;
+  border-radius: 10px;
 }
