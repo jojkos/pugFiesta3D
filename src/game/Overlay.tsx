@@ -72,6 +72,8 @@ function teamBadgeBackground(team: Team): string {
   return `linear-gradient(110deg, ${team.primary} 0%, ${team.primary} 50%, ${team.accent} 50%, ${team.accent} 100%)`;
 }
 
+const IOS_NUDGE_DISMISSED_KEY = 'pug-banger-fiesta-ios-nudge-dismissed';
+
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -272,6 +274,18 @@ export function Overlay({
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(() => isAppInstalled());
   const [installInstructionsOpen, setInstallInstructionsOpen] = useState(false);
+  const [iosNudgeOpen, setIosNudgeOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    if (!isIosWebContext()) return false;
+    return window.localStorage.getItem(IOS_NUDGE_DISMISSED_KEY) !== '1';
+  });
+
+  const dismissIosNudge = useCallback(() => {
+    setIosNudgeOpen(false);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(IOS_NUDGE_DISMISSED_KEY, '1');
+    }
+  }, []);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -731,6 +745,44 @@ export function Overlay({
                       <p>{strings.help.iosBody}</p>
                     </div>
                   )}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {iosNudgeOpen && !installInstructionsOpen && (
+            <div
+              className="ios-nudge-backdrop"
+              role="dialog"
+              aria-modal="true"
+              aria-label={strings.iosNudge.title}
+              onClick={dismissIosNudge}
+            >
+              <section
+                className="ios-nudge"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="ios-nudge-icon" aria-hidden="true">📲</div>
+                <h3 className="ios-nudge-title">{strings.iosNudge.title}</h3>
+                <p className="ios-nudge-body">{strings.iosNudge.body}</p>
+                <div className="ios-nudge-actions">
+                  <button
+                    type="button"
+                    className="ios-nudge-cta"
+                    onClick={() => {
+                      dismissIosNudge();
+                      setInstallInstructionsOpen(true);
+                    }}
+                  >
+                    📲 {strings.iosNudge.cta}
+                  </button>
+                  <button
+                    type="button"
+                    className="ios-nudge-dismiss"
+                    onClick={dismissIosNudge}
+                  >
+                    {strings.iosNudge.dismiss}
+                  </button>
                 </div>
               </section>
             </div>
