@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { Lang } from './i18n';
 import { DEFAULT_LANG } from './i18n';
+import { VOICE_CACHE_MANIFEST } from './voiceCacheManifest';
 
 export type VoiceCharacter = {
   id: string;
@@ -101,6 +102,23 @@ async function fetchPhrase(
   const cacheUrlKey = `${cacheUrl(voiceId, text)}?lang=${lang}`;
 
   const promise = (async () => {
+    // Pre-baked static asset (see scripts/generate-voice-cache.mjs). When a
+    // phrase is in the manifest the runtime never hits ElevenLabs — the mp3
+    // ships as a normal asset under public/assets/voice/.
+    const staticRel = VOICE_CACHE_MANIFEST[key];
+    if (staticRel) {
+      try {
+        const res = await fetch(`/assets/${staticRel}`);
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          memoryCacheSet(key, buf);
+          return buf;
+        }
+      } catch {
+        // Fall through to CacheStorage / network.
+      }
+    }
+
     if ('caches' in globalThis) {
       try {
         const cache = await caches.open(CACHE_NAME);
