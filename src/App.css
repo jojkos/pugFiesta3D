@@ -987,9 +987,9 @@ body {
 
 .lb-podium {
   display: grid;
-  grid-template-columns: 1fr 1.1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  align-items: end;
+  align-items: stretch;
 }
 
 .lb-pod {
@@ -1005,7 +1005,7 @@ body {
 .lb-pod.gold {
   background: linear-gradient(180deg, #fff0c5, #ffe09b);
   border-color: #f3b34a;
-  transform: translateY(-6px);
+  box-shadow: 0 2px 0 #e9a93a;
 }
 
 .lb-pod.silver {
