@@ -44,11 +44,17 @@ type TagBurstState = {
   age: number;
   x: number;
   z: number;
-  variant: number;
 };
 
 const BURST_COUNT = 6;
 const HITSTOP_RAMP = 0.05;
+
+// Frame-rate-independent `lerp(current, target, alpha)`. The original alpha
+// values were tuned at 60fps; `dampAlpha(alpha, delta)` returns the equivalent
+// step for any frame interval so gameplay feels identical at 30/60/120/144 Hz.
+function dampAlpha(alpha: number, delta: number) {
+  return 1 - Math.pow(1 - alpha, delta * 60);
+}
 
 export function PrototypeScene({
   isPlaying,
@@ -86,7 +92,9 @@ export function PrototypeScene({
   const burstRings = useRef<Array<Mesh | null>>([]);
   const playerState = useRef<PlayerState>(createPlayerState());
   const npcStates = useRef<NpcState[]>(
-    Array.from({ length: NPC_COUNT }, (_, index) => createNpcState(index, roundId)),
+    Array.from({ length: NPC_COUNT }, (_, index) =>
+      createNpcState(index, roundId, 0, 0),
+    ),
   );
   const npcActions = useRef<CharacterAction[]>(
     Array.from({ length: NPC_COUNT }, () => 'idle' as CharacterAction),
@@ -105,10 +113,10 @@ export function PrototypeScene({
       age: 0,
       x: 0,
       z: 0,
-      variant: 0,
     })),
   );
   const scratchVec2 = useRef(new Vector2());
+  const scratchDashDir = useRef(new Vector2());
   const scratchCameraFocus = useRef(new Vector3());
   const decor = useMemo(() => {
     const points: Array<{ x: number; z: number; scale: number }> = [];
@@ -154,14 +162,17 @@ export function PrototypeScene({
   useEffect(() => {
     playerState.current = createPlayerState();
     npcStates.current = Array.from({ length: NPC_COUNT }, (_, index) =>
-      createNpcState(index, roundId),
+      createNpcState(index, roundId, 0, 0),
     );
     npcActions.current = Array.from(
       { length: NPC_COUNT },
       () => 'idle' as CharacterAction,
     );
     playerAction.current = 'idle';
-    lastDashNonce.current = 0;
+    // Sync to the current dashNonce so we don't fire a phantom dash on round
+    // start (if dashNonce is non-zero) nor miss the next press (if we reset
+    // to 0 while dashNonce is already 0).
+    lastDashNonce.current = dashNonce;
     facingVector.current.set(0, 1);
     cameraFocus.current.set(0, 0, 0);
     cameraShake.current = 0;
@@ -170,6 +181,7 @@ export function PrototypeScene({
       burst.active = false;
       burst.age = 0;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundId]);
 
   useFrame((state, rawDelta) => {
@@ -192,7 +204,7 @@ export function PrototypeScene({
       canDash &&
       now - playerData.dashRequestedAt < DASH_BUFFER
     ) {
-      const direction = scratchVec2.current.set(moveInput.x, moveInput.y);
+      const direction = scratchDashDir.current.set(moveInput.x, moveInput.y);
       if (direction.lengthSq() > 0.01) {
         direction.normalize();
         facingVector.current.copy(direction);
@@ -239,7 +251,8 @@ export function PrototypeScene({
           : isLatching
             ? 0
             : moveVector.y * PLAYER_SPEED;
-      const accel = playerData.dashTime > 0 ? 0.36 : isLatching ? 0.5 : 0.18;
+      const accelRaw = playerData.dashTime > 0 ? 0.36 : isLatching ? 0.5 : 0.18;
+      const accel = dampAlpha(accelRaw, delta);
 
       playerData.velocityX = MathUtils.lerp(
         playerData.velocityX,
@@ -264,16 +277,18 @@ export function PrototypeScene({
       if (playerData.latchTime <= 0 && playerData.latchedNpcIds.length > 0) {
         playerData.latchedNpcIds.forEach((id) => {
           npcData[id].isLatched = false;
+          // Re-arm the respawn cooldown on unlatch so the NPC always cycles
+          // through a fresh spawn — independent of how the latch/respawn
+          // durations are tuned relative to each other.
+          npcData[id].taggedCooldown = NPC_RESPAWN_DELAY;
         });
         playerData.latchedNpcIds = [];
       }
 
       npcData.forEach((npc, index) => {
         if (npc.isLatched) {
-          // Tick cooldown while latched so respawn timing stays consistent
-          // with the unlatched path; isLatched takes precedence over cooldown
-          // for positioning so the pug actually follows the player.
-          npc.taggedCooldown = Math.max(0, npc.taggedCooldown - delta);
+          // Don't tick the respawn cooldown while latched — it'll start the
+          // moment the NPC unlatches.
 
           const slot = Math.max(0, playerData.latchedNpcIds.indexOf(index));
           const forwardOffset = 0.65;
@@ -303,9 +318,16 @@ export function PrototypeScene({
           npc.taggedCooldown = Math.max(0, npc.taggedCooldown - delta);
 
           if (npc.taggedCooldown === 0) {
+            // Mix in elapsed time AND the NPC index so simultaneous respawns
+            // don't cluster at the same angle. Also feed in the player's
+            // position so we can avoid spawning right on top of them.
+            const respawnSeed =
+              roundId + state.clock.elapsedTime + index * 7.31;
             npcStates.current[index] = createNpcState(
               index,
-              roundId + state.clock.elapsedTime * 0.1,
+              respawnSeed,
+              playerData.x,
+              playerData.z,
             );
             npcActions.current[index] = 'idle';
           }
@@ -322,14 +344,19 @@ export function PrototypeScene({
           const fleeZ = npc.z - playerData.z;
           const fleeLength = Math.max(0.001, Math.hypot(fleeX, fleeZ));
           const easing = 1 - distanceToPlayer / NPC_FLEE_RADIUS;
-          npc.dirX = MathUtils.lerp(npc.dirX, fleeX / fleeLength, 0.18 + easing * 0.4);
-          npc.dirZ = MathUtils.lerp(npc.dirZ, fleeZ / fleeLength, 0.18 + easing * 0.4);
+          const turnAlpha = dampAlpha(0.18 + easing * 0.4, delta);
+          npc.dirX = MathUtils.lerp(npc.dirX, fleeX / fleeLength, turnAlpha);
+          npc.dirZ = MathUtils.lerp(npc.dirZ, fleeZ / fleeLength, turnAlpha);
           const fleeNorm = Math.max(0.001, Math.hypot(npc.dirX, npc.dirZ));
           npc.dirX /= fleeNorm;
           npc.dirZ /= fleeNorm;
-          npc.fleeBoost = MathUtils.lerp(npc.fleeBoost, 1.3 + easing * 0.6, 0.2);
+          npc.fleeBoost = MathUtils.lerp(
+            npc.fleeBoost,
+            1.3 + easing * 0.6,
+            dampAlpha(0.2, delta),
+          );
         } else {
-          npc.fleeBoost = MathUtils.lerp(npc.fleeBoost, 1, 0.05);
+          npc.fleeBoost = MathUtils.lerp(npc.fleeBoost, 1, dampAlpha(0.05, delta));
           npc.wanderTime -= delta;
           if (npc.wanderTime <= 0) {
             const angle =
@@ -361,7 +388,10 @@ export function PrototypeScene({
           if (postMoveDistance < TAG_RADIUS) {
             const slot = playerData.latchedNpcIds.length;
             playerData.latchedNpcIds.push(index);
-            onTag(playerData.latchedNpcIds.length);
+            // Defer parent setState out of the useFrame tick so it doesn't
+            // synchronously re-render the Canvas tree mid-frame.
+            const chainSize = playerData.latchedNpcIds.length;
+            queueMicrotask(() => onTag(chainSize));
             playerData.latchTime = LATCH_DURATION;
             playerData.velocityX = 0;
             playerData.velocityZ = 0;
@@ -387,7 +417,7 @@ export function PrototypeScene({
             cameraShake.current = 1;
             cameraShakeDirX.current = playerData.facingX;
             cameraShakeDirZ.current = playerData.facingZ;
-            spawnBurst(burstStates.current, npc.x, npc.z, index);
+            spawnBurst(burstStates.current, npc.x, npc.z);
 
             if (playerData.latchedNpcIds.length >= MAX_SIMULTANEOUS_LATCHES) {
               playerData.dashTime = 0;
@@ -424,7 +454,7 @@ export function PrototypeScene({
         0,
         playerData.z * 0.18,
       ),
-      0.08,
+      dampAlpha(0.08, rawDelta),
     );
     // Set position AND lookAt from the same already-smoothed focus value
     // so the camera pans purely instead of rotating (no lerp-lag between them).
@@ -443,7 +473,8 @@ export function PrototypeScene({
     // smoothly zoom in to the responsive base zoom once the round starts.
     if ('zoom' in camera && typeof camera.zoom === 'number') {
       const targetZoom = introZoomOut ? baseZoom * 0.62 : baseZoom;
-      const eased = MathUtils.lerp(camera.zoom, targetZoom, introZoomOut ? 0.2 : 0.045);
+      const zoomAlpha = dampAlpha(introZoomOut ? 0.2 : 0.045, rawDelta);
+      const eased = MathUtils.lerp(camera.zoom, targetZoom, zoomAlpha);
       if (Math.abs(eased - camera.zoom) > 0.001) {
         camera.zoom = eased;
         camera.updateProjectionMatrix();
@@ -487,7 +518,7 @@ export function PrototypeScene({
       player.current.rotation.y = MathUtils.lerp(
         player.current.rotation.y,
         Math.atan2(playerData.facingX, playerData.facingZ),
-        0.4,
+        dampAlpha(0.4, rawDelta),
       );
       player.current.rotation.z = 0;
 
@@ -533,7 +564,7 @@ export function PrototypeScene({
         const targetRotation = Math.atan2(npc.dirX, npc.dirZ);
         group.rotation.y = npc.isLatched
           ? targetRotation
-          : MathUtils.lerp(group.rotation.y, targetRotation, 0.25);
+          : MathUtils.lerp(group.rotation.y, targetRotation, dampAlpha(0.25, rawDelta));
         const npcSquash = npc.isLatched
           ? 1 + Math.sin(state.clock.elapsedTime * 18) * 0.05
           : 1;
@@ -671,18 +702,12 @@ export function PrototypeScene({
   );
 }
 
-function spawnBurst(
-  bursts: TagBurstState[],
-  x: number,
-  z: number,
-  variant: number,
-) {
+function spawnBurst(bursts: TagBurstState[], x: number, z: number) {
   const burst = bursts.find((item) => !item.active) ?? bursts[0];
   burst.active = true;
   burst.age = 0;
   burst.x = x;
   burst.z = z;
-  burst.variant = variant;
 }
 
 function createPlayerState(): PlayerState {
@@ -709,7 +734,14 @@ function clampToArena(x: number, z: number): { x: number; z: number } {
   };
 }
 
-function createNpcState(index: number, roundSeed: number): NpcState {
+const MIN_SPAWN_DISTANCE_FROM_PLAYER = 3.2;
+
+function createNpcState(
+  index: number,
+  roundSeed: number,
+  playerX: number,
+  playerZ: number,
+): NpcState {
   let angle = roundSeed * 0.77 + (index / NPC_COUNT) * Math.PI * 2;
   const normalized = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
   if (normalized < 0.6 || normalized > Math.PI * 2 - 0.6) {
@@ -717,10 +749,25 @@ function createNpcState(index: number, roundSeed: number): NpcState {
   } else if (Math.abs(normalized - Math.PI) < 0.6) {
     angle += 0.9;
   }
-  const radius = 3.3 + (index % 2) * 1.2;
+  const baseRadius = 3.3 + (index % 2) * 1.2;
+
+  // Try a few angles outward from the seed until we land far enough from the
+  // player. Cheap, deterministic, and avoids "respawn right on top of you"
+  // chain-tags.
+  let x = Math.cos(angle) * baseRadius;
+  let z = Math.sin(angle) * (baseRadius * 0.55);
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    if (Math.hypot(x - playerX, z - playerZ) >= MIN_SPAWN_DISTANCE_FROM_PLAYER) {
+      break;
+    }
+    angle += Math.PI / 3;
+    x = Math.cos(angle) * baseRadius;
+    z = Math.sin(angle) * (baseRadius * 0.55);
+  }
+
   return {
-    x: Math.cos(angle) * radius,
-    z: Math.sin(angle) * (radius * 0.55),
+    x,
+    z,
     dirX: Math.cos(angle + Math.PI * 0.5),
     dirZ: Math.sin(angle + Math.PI * 0.5),
     wanderTime: 0.65 + index * 0.18,

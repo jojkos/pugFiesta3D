@@ -1,8 +1,7 @@
-import { Vector2, Vector3 } from 'three';
+import { Vector3 } from 'three';
 import type { NpcVariant } from './types';
 
 export const ROUND_DURATION = 45;
-export const ARENA_LIMIT = 8.5;
 export const FIELD_HALF_X = 9.5;
 export const FIELD_HALF_Z = 5;
 export const GOAL_AREA_RADIUS = 3.4;
@@ -26,8 +25,6 @@ export const NPC_RESPAWN_DELAY = 1;
 export const TOUCH_DEADZONE = 0.16;
 
 export const CAMERA_POSITION = new Vector3(0, 14, 15);
-export const SCREEN_FORWARD = new Vector2(0, -1);
-export const SCREEN_RIGHT = new Vector2(1, 0);
 
 export const NPC_VARIANTS: NpcVariant[] = [
   {

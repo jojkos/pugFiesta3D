@@ -15,7 +15,7 @@ export function TouchControls({
 }>) {
   const stick = useRef<HTMLDivElement>(null);
   const [thumb, setThumb] = useState({ x: 0, y: 0 });
-  const [dashPulse, setDashPulse] = useState(0);
+  const [isPulsing, setIsPulsing] = useState(false);
   const visibleThumb = disabled ? { x: 0, y: 0 } : thumb;
 
   useEffect(() => {
@@ -92,17 +92,15 @@ export function TouchControls({
       </div>
 
       <button
-        className={`dash-button ${dashPulse > 0 ? 'is-pulsing' : ''}`}
+        type="button"
+        className={`dash-button ${isPulsing ? 'is-pulsing' : ''}`}
         disabled={disabled}
+        onAnimationEnd={() => setIsPulsing(false)}
         onPointerDown={(event) => {
           event.preventDefault();
           if (!disabled) {
             onDash();
-            setDashPulse((value) => value + 1);
-            globalThis.setTimeout(
-              () => setDashPulse((value) => Math.max(0, value - 1)),
-              220,
-            );
+            setIsPulsing(true);
           }
         }}
       >

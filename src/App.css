@@ -32,6 +32,16 @@
   box-sizing: border-box;
 }
 
+/* Keyboard focus ring — visible on every interactive element. The browser
+   default is invisible against the cream palette. */
+button:focus-visible,
+input:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 body {
   margin: 0;
   font-family: var(--ui-font);
@@ -55,64 +65,8 @@ body {
 
 .scene-shell > canvas {
   display: block;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-/* ─────────── HUD ─────────── */
-
-.hud {
-  position: absolute;
-  top: max(18px, env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 10px;
-  z-index: 20;
-  pointer-events: none;
-}
-
-.hud-chip {
-  min-width: 88px;
-  padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-  background: rgba(255, 247, 238, 0.94);
-  backdrop-filter: blur(14px);
-  box-shadow: var(--shadow-card);
-  text-align: center;
-  transition: transform 200ms ease, background 200ms ease;
-}
-
-.hud-chip strong {
-  display: block;
-  margin-top: 2px;
-  font-size: 1.5rem;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.hud-time.is-low {
-  background: linear-gradient(180deg, #ff8a8a 0%, #ff6f73 100%);
-  color: #fff8f0;
-  border-color: rgba(255, 255, 255, 0.32);
-  animation: pulseChip 0.7s ease-in-out infinite alternate;
-}
-
-.hud-time.is-low .hud-label {
-  color: rgba(255, 248, 240, 0.78);
-}
-
-@keyframes pulseChip {
-  from { transform: scale(1); }
-  to { transform: scale(1.06); }
-}
-
-.hud-label {
-  font-size: var(--label);
-  text-transform: uppercase;
-  letter-spacing: var(--eyebrow-tracking);
-  color: #9a5d41;
+  width: 100%;
+  height: 100%;
 }
 
 /* ─────────── Top-right controls ─────────── */
@@ -189,13 +143,16 @@ body {
   display: flex;
   align-items: safe center;
   justify-content: center;
-  padding: 14px;
+  padding:
+    max(14px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left));
   background: rgba(80, 33, 18, 0.34);
   backdrop-filter: blur(8px);
   animation: fadeIn 220ms ease;
   overflow-y: auto;
   overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
 }
 
 @keyframes fadeIn {
@@ -373,14 +330,6 @@ body {
   white-space: nowrap;
 }
 
-.menu-chip .dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 1.5px solid #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
-}
-
 .menu-chip .flag {
   font-size: 14px;
 }
@@ -505,12 +454,15 @@ body {
   display: flex;
   align-items: safe center;
   justify-content: center;
-  padding: 14px;
+  padding:
+    max(14px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left));
   background: rgba(36, 16, 11, 0.42);
   backdrop-filter: blur(6px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
   animation: fadeIn 180ms ease;
 }
 
@@ -635,7 +587,11 @@ body {
   display: flex;
   align-items: safe center;
   justify-content: center;
-  padding: 14px;
+  padding:
+    max(14px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left));
   background: rgba(80, 33, 18, 0.34);
   backdrop-filter: blur(8px);
   animation: fadeIn 180ms ease;
@@ -812,11 +768,6 @@ body {
   letter-spacing: 0.02em;
 }
 
-@keyframes popIn {
-  from { opacity: 0; transform: translate(-50%, 4px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
-}
-
 .menu-pop-title {
   font-size: 9.5px;
   text-transform: uppercase;
@@ -854,40 +805,6 @@ body {
   background: var(--accent);
   color: #fff8f0;
   border-color: var(--accent);
-}
-
-.menu-pop-swatch {
-  position: relative;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 3px 7px rgba(80, 33, 18, 0.2);
-  cursor: pointer;
-  padding: 0;
-}
-
-.menu-pop-swatch.on {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.menu-pop-swatch-custom {
-  display: grid;
-  place-items: center;
-  color: #fff8f0;
-  font-weight: 800;
-  font-size: 0.9rem;
-  overflow: hidden;
-}
-
-.menu-pop-swatch-custom input[type='color'] {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-  border: 0;
-  padding: 0;
 }
 
 /* Portrait stack — design uses 480 but we drop slightly so the landscape
@@ -1193,12 +1110,13 @@ body {
   white-space: nowrap;
 }
 
-.lb-row.you .lb-name::after {
-  content: ' · TY';
+.lb-name-you-tag {
+  margin-left: 6px;
   font-size: 9px;
   color: var(--accent-deep);
   font-weight: 800;
   letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .lb-score {
@@ -1791,6 +1709,15 @@ body {
   pointer-events: none;
 }
 
+/* Hide the on-screen joystick + dash button on devices with a real pointer
+   (mouse/trackpad). Phones/tablets fall into `(pointer: coarse)` and keep
+   them. */
+@media (hover: hover) and (pointer: fine) {
+  .touch-layer {
+    display: none;
+  }
+}
+
 .joystick,
 .dash-button {
   pointer-events: auto;
@@ -1919,24 +1846,9 @@ body {
     top: 14px;
     right: 14px;
   }
-  .hud {
-    top: 14px;
-    gap: 8px;
-  }
 }
 
 @media (max-width: 640px) {
-  .hud {
-    top: 12px;
-    gap: 6px;
-  }
-  .hud-chip {
-    min-width: 72px;
-    padding: 8px 10px;
-  }
-  .hud-chip strong {
-    font-size: 1.2rem;
-  }
   .control-cluster {
     top: 12px;
     right: 12px;

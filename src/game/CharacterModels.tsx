@@ -1,13 +1,13 @@
 import { useAnimations, useGLTF } from '@react-three/drei';
-import { useFrame, useThree, type ThreeElements } from '@react-three/fiber';
+import { useFrame, type ThreeElements } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import {
-  AnimationAction,
-  AnimationClip,
-  Group,
   LoopOnce,
   Mesh,
   MeshStandardMaterial,
+  type AnimationAction,
+  type AnimationClip,
+  type Group,
   type Object3D,
 } from 'three';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -84,10 +84,8 @@ export function PugCharacter({
   bodyScale = DEFAULT_BODY_SCALE,
   ...props
 }: Readonly<PugModelProps>) {
-  const host = useRef<Group>(null);
   const root = useRef<Group>(null);
   const { scene, animations } = useGLTF(modelUrl);
-  const { scene: rootScene } = useThree();
   const clonedScene = useMemo(() => {
     const nextScene = clone(scene);
 
@@ -135,13 +133,31 @@ export function PugCharacter({
     return nextScene;
   }, [palette.bodyColor, palette.headColor, scene, isPlayer]);
 
+  // Dispose the cloned materials when this character unmounts or the clone is
+  // regenerated (e.g. palette change). Otherwise GPU memory grows every round.
+  useEffect(() => {
+    const scope = clonedScene;
+    return () => {
+      scope.traverse((object) => {
+        if (
+          object instanceof Mesh &&
+          object.material instanceof MeshStandardMaterial
+        ) {
+          object.material.dispose();
+        }
+      });
+    };
+  }, [clonedScene]);
+
   useEffect(() => {
     if (!isPlayer || !palette.jerseyColor) {
       return;
     }
     const primary = palette.jerseyColor;
     const accent = palette.jerseyAccentColor ?? primary;
-    rootScene.traverse((object) => {
+    // Only paint the player's own subtree — traversing the whole R3F scene
+    // would paint NPC jerseys too if any material name collides.
+    clonedScene.traverse((object) => {
       if (
         !(object instanceof Mesh) ||
         !(object.material instanceof MeshStandardMaterial)
@@ -159,7 +175,7 @@ export function PugCharacter({
         object.material.emissiveIntensity = 0;
       }
     });
-  }, [palette.jerseyColor, palette.jerseyAccentColor, isPlayer, rootScene]);
+  }, [palette.jerseyColor, palette.jerseyAccentColor, isPlayer, clonedScene]);
 
   const { mixer } = useAnimations(animations, root);
   const actions = useRef<ActionMap>({});
@@ -224,7 +240,11 @@ export function PugCharacter({
 
     return () => {
       Object.values(map).forEach((action) => {
+        const clip = action?.getClip();
         action?.stop();
+        if (clip && root.current) {
+          mixer.uncacheAction(clip, root.current);
+        }
       });
       actions.current = {};
     };
@@ -328,7 +348,7 @@ export function PugCharacter({
   });
 
   return (
-    <group ref={host} {...props}>
+    <group {...props}>
       <group position={[0, 0, 0]}>
         <group ref={root} scale={bodyScale}>
           <primitive object={clonedScene} />
