@@ -314,6 +314,8 @@ function App() {
             moveInput={worldMoveInput}
             score={score}
             timeLeft={timeLeft}
+            baseZoom={cameraZoom}
+            introZoomOut={mode === 'playing' && countdown !== null}
             onDashStart={playDash}
             onTag={(chainSize) => {
               const multiPhrase = strings.multiTagPhrases[chainSize];

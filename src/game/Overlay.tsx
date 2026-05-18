@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import type { LeaderboardEntry } from '../lib/supabase';
 import type { GameMode } from './types';
@@ -113,18 +114,6 @@ function FullscreenButton({ label }: Readonly<{ label: string }>) {
   );
 }
 
-function useOutside(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
-  useEffect(() => {
-    function onDown(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [ref, onClose]);
-}
-
 function ChipPopover({
   label,
   value,
@@ -139,11 +128,19 @@ function ChipPopover({
   children: (close: () => void) => ReactNode;
 }>) {
   const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
-  useOutside(wrap, () => setOpen(false));
+  const close = useCallback(() => setOpen(false), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, close]);
 
   return (
-    <div ref={wrap} className="menu-chip-wrap">
+    <div className="menu-chip-wrap">
       <button
         type="button"
         className={`menu-chip ${open ? 'is-open' : ''}`}
@@ -156,12 +153,34 @@ function ChipPopover({
           ▾
         </span>
       </button>
-      {open && (
-        <div className={`menu-pop ${wide ? 'wide' : ''}`}>
-          <p className="menu-pop-title">{label}</p>
-          <div className="menu-pop-options">{children(() => setOpen(false))}</div>
-        </div>
-      )}
+      {open &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="menu-pop-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-label={label}
+            onClick={close}
+          >
+            <div
+              className={`menu-pop ${wide ? 'wide' : ''}`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="menu-pop-close"
+                aria-label="Close"
+                onClick={close}
+              >
+                ✕
+              </button>
+              <p className="menu-pop-title">{label}</p>
+              <div className="menu-pop-options">{children(close)}</div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -409,7 +428,6 @@ export function Overlay({
               >
                 {() => (
                   <div className="team-pop">
-                    <p className="menu-pop-title">{strings.menu.teamPickerTitle}</p>
                     <div className="team-grid">
                       {TEAMS.map((team) => {
                         const active = currentTeam?.id === team.id;
