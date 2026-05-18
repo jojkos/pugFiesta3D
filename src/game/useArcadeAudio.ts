@@ -288,6 +288,83 @@ export function useArcadeAudio(muted: boolean) {
     });
   }, [playNoise, playTone]);
 
+  const playCheer = useCallback(() => {
+    // Crowd "aaahh" — three parallel band-passed noise layers tuned to vocal
+    // formants (F1≈800, F2≈1200, F3≈2400) to fake a human "ah" timbre. Stacking
+    // them gives the noise an open-vowel character instead of plain hiss.
+    const formants: Array<{ freq: number; Q: number; gain: number }> = [
+      { freq: 780, Q: 6, gain: 0.055 },
+      { freq: 1180, Q: 8, gain: 0.04 },
+      { freq: 2450, Q: 5, gain: 0.025 },
+    ];
+    formants.forEach(({ freq, Q, gain }) => {
+      void playNoise({
+        duration: 1.3,
+        gain,
+        filterFrequency: freq,
+        filterType: 'bandpass',
+        Q,
+      });
+    });
+    // Diffuse low-mid bed for body — wide bandpass sweeping across the cheer.
+    void playNoise({
+      duration: 1.3,
+      gain: 0.05,
+      filterFrequency: 600,
+      filterType: 'bandpass',
+      Q: 0.9,
+    });
+
+    // Clap stream — many short transients with randomized timing, gain, and
+    // filter to simulate an uncoordinated crowd. Density (~30 over 1.3s) is
+    // what reads as "many people clapping" instead of one clapper.
+    const clapCount = 32;
+    for (let i = 0; i < clapCount; i += 1) {
+      const baseOffset = (i / clapCount) * 1200;
+      const jitter = (Math.random() - 0.5) * 90;
+      const offsetMs = Math.max(0, baseOffset + jitter);
+      const density = i < 8 ? 1.25 : 1; // front-load slightly for impact
+      trackTimeout(() => {
+        void playNoise({
+          duration: 0.018 + Math.random() * 0.012,
+          gain: (0.035 + Math.random() * 0.04) * density,
+          filterFrequency: 2200 + Math.random() * 1600,
+          filterType: 'highpass',
+          Q: 0.5 + Math.random() * 0.6,
+        });
+      }, offsetMs);
+    }
+
+    // Bright triumphant whistle/fanfare — rising triangle with a brief
+    // second-octave tail.
+    void playTone(
+      {
+        frequency: 880,
+        endFrequency: 1568,
+        duration: 0.55,
+        gain: 0.045,
+        type: 'triangle',
+        attack: 0.03,
+      },
+      'fx',
+      0.5,
+    );
+    trackTimeout(() => {
+      void playTone(
+        {
+          frequency: 1318.5,
+          endFrequency: 1760,
+          duration: 0.4,
+          gain: 0.035,
+          type: 'triangle',
+          attack: 0.02,
+        },
+        'fx',
+        0.5,
+      );
+    }, 180);
+  }, [playNoise, playTone, trackTimeout]);
+
   const playRoundStart = useCallback(() => {
     void playTone({
       frequency: 392,
@@ -443,6 +520,7 @@ export function useArcadeAudio(muted: boolean) {
     () => ({
       playDash: () => guard(playDash),
       playTag: () => guard(playTag),
+      playCheer: () => guard(playCheer),
       playRoundStart: () => guard(playRoundStart),
       playRoundEnd: () => guard(playRoundEnd),
       playCountdownTick: () => guard(playCountdownTick),
@@ -453,6 +531,7 @@ export function useArcadeAudio(muted: boolean) {
       guard,
       playDash,
       playTag,
+      playCheer,
       playRoundStart,
       playRoundEnd,
       playCountdownTick,

@@ -71,7 +71,7 @@ const cs = {
     close: 'Zavřít',
     goalHeading: '🎯 Cíl',
     goalBody:
-      'Máš 45 vteřin. Obskoč co nejvíce čubiček. Když trefíš víc čubiček naráz, je z toho trojka nebo grupáč.',
+      'Máš 45 vteřin. Obskoč co nejvíce čubiček. Když trefíš víc čubiček naráz, je z toho trojka nebo grupáč. Trefa v brance je za dva body.',
     desktopHeading: '⌨️ Počítač',
     desktopBody:
       'WASD nebo šipky pro pohyb. Mezerník = BANG na nejbližšího mopsíka v dosahu.',
@@ -86,6 +86,7 @@ const cs = {
     2: 'Trojka!',
     3: 'Grupáč!',
   } as Partial<Record<number, string>>,
+  goalShout: 'Skóruje!',
   tagPhrases: [
     'štěká, ale nekouše',
     'utrhnem se ze řetězu',
@@ -170,7 +171,7 @@ const en: typeof cs = {
     close: 'Close',
     goalHeading: '🎯 Goal',
     goalBody:
-      'You have 45 seconds. Pounce on as many pugs as possible. Dash takes a moment to recharge, so save it for pugs in range. Land on multiple pugs at once for a threesome or gangbang bonus.',
+      'You have 45 seconds. Pounce on as many pugs as possible. Dash takes a moment to recharge, so save it for pugs in range. Land on multiple pugs at once for a threesome or gangbang bonus. A latch inside the goal is worth double points.',
     desktopHeading: '⌨️ Desktop',
     desktopBody:
       'WASD or arrows to move. Space = DASH onto the nearest pug in range.',
@@ -185,6 +186,7 @@ const en: typeof cs = {
     2: 'Threesome!',
     3: 'Gangbang!',
   },
+  goalShout: 'Score!',
   tagPhrases: [
     'Sit, stay... slay',
     'Hot dog incoming!',

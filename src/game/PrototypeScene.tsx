@@ -10,8 +10,12 @@ import {
   DASH_SPEED,
   FIELD_HALF_X,
   FIELD_HALF_Z,
+  GOAL_LINE_THRESHOLD,
+  GOAL_WIDTH,
   HITSTOP_DURATION,
   LATCH_DURATION,
+  LATCH_SNAP_DURATION,
+  LATCH_SPLASH_RADIUS_MULT,
   MAX_SIMULTANEOUS_LATCHES,
   NPC_COUNT,
   NPC_FLEE_RADIUS,
@@ -51,6 +55,38 @@ type TagBurstState = {
 
 const BURST_COUNT = 6;
 const HITSTOP_RAMP = 0.05;
+const LATCH_FORWARD_OFFSET = 0.65;
+const LATCH_SIDE_STEP = 0.5;
+const CONFETTI_COUNT = 40;
+const CONFETTI_SPAWN_PER_GOAL = 30;
+const CONFETTI_COLORS = [
+  '#ff6fb1',
+  '#ffe066',
+  '#7be2ff',
+  '#9dff9d',
+  '#ff9ac0',
+  '#ffd76a',
+  '#b08cff',
+  '#ff8c5a',
+];
+
+type ConfettiParticle = {
+  active: boolean;
+  age: number;
+  lifetime: number;
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  rotX: number;
+  rotY: number;
+  rotZ: number;
+  spinX: number;
+  spinY: number;
+  spinZ: number;
+};
 
 // Frame-rate-independent `lerp(current, target, alpha)`. The original alpha
 // values were tuned at 60fps; `dampAlpha(alpha, delta)` returns the equivalent
@@ -77,7 +113,7 @@ export function PrototypeScene({
   moveInput: AnalogInput;
   dashNonce: number;
   onDashStart: () => void;
-  onTag: (chainSize: number) => void;
+  onTag: (chainSize: number, inGoal: boolean) => void;
   roundId: number;
   jerseyColor: string;
   jerseyAccentColor: string;
@@ -93,6 +129,26 @@ export function PrototypeScene({
   const npcShadows = useRef<Array<Group | null>>([]);
   const burstGroups = useRef<Array<Group | null>>([]);
   const burstRings = useRef<Array<Mesh | null>>([]);
+  const confettiGroups = useRef<Array<Group | null>>([]);
+  const confettiParticles = useRef<ConfettiParticle[]>(
+    Array.from({ length: CONFETTI_COUNT }, () => ({
+      active: false,
+      age: 0,
+      lifetime: 0,
+      x: 0,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+      rotX: 0,
+      rotY: 0,
+      rotZ: 0,
+      spinX: 0,
+      spinY: 0,
+      spinZ: 0,
+    })),
+  );
   const playerState = useRef<PlayerState>(createPlayerState());
   const npcStates = useRef<NpcState[]>(
     Array.from({ length: NPC_COUNT }, (_, index) =>
@@ -180,6 +236,10 @@ export function PrototypeScene({
       burst.active = false;
       burst.age = 0;
     });
+    confettiParticles.current.forEach((p) => {
+      p.active = false;
+      p.age = 0;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundId]);
 
@@ -191,7 +251,12 @@ export function PrototypeScene({
 
     if (dashNonce !== lastDashNonce.current && isPlaying) {
       lastDashNonce.current = dashNonce;
-      playerData.dashRequestedAt = now;
+      // Ignore presses while the latch animation is playing — the player is
+      // committed to it and shouldn't be able to dash again until it ends.
+      // We still consume the nonce so the press doesn't queue up.
+      if (playerData.latchTime <= 0) {
+        playerData.dashRequestedAt = now;
+      }
     }
 
     const canDash =
@@ -288,25 +353,30 @@ export function PrototypeScene({
         if (npc.isLatched) {
           // Don't tick the respawn cooldown while latched — it'll start the
           // moment the NPC unlatches.
+          npc.latchAge += delta;
 
           const slot = Math.max(0, playerData.latchedNpcIds.indexOf(index));
-          const forwardOffset = 0.65;
-          const sideStep = 0.5;
           const sideOffset =
-            slot === 0 ? 0 : (slot % 2 === 1 ? 1 : -1) * sideStep * Math.ceil(slot / 2);
+            slot === 0
+              ? 0
+              : (slot % 2 === 1 ? 1 : -1) * LATCH_SIDE_STEP * Math.ceil(slot / 2);
           const perpX = -playerData.facingZ;
           const perpZ = playerData.facingX;
           const targetX =
             playerData.x +
-            playerData.facingX * forwardOffset +
+            playerData.facingX * LATCH_FORWARD_OFFSET +
             perpX * sideOffset;
           const targetZ =
             playerData.z +
-            playerData.facingZ * forwardOffset +
+            playerData.facingZ * LATCH_FORWARD_OFFSET +
             perpZ * sideOffset;
           const clampedLatch = clampToArena(targetX, targetZ);
-          npc.x = clampedLatch.x;
-          npc.z = clampedLatch.z;
+          // Smoothstep from the pug's caught-position into its formation
+          // slot — kills the visible teleport jerk at latch start.
+          const t = Math.min(1, npc.latchAge / LATCH_SNAP_DURATION);
+          const ease = t * t * (3 - 2 * t);
+          npc.x = MathUtils.lerp(npc.latchOriginX, clampedLatch.x, ease);
+          npc.z = MathUtils.lerp(npc.latchOriginZ, clampedLatch.z, ease);
           npc.dirX = playerData.facingX;
           npc.dirZ = playerData.facingZ;
           npcActions.current[index] = 'react';
@@ -377,7 +447,7 @@ export function PrototypeScene({
         npcActions.current[index] = speed > 1.5 ? 'run' : 'idle';
 
         if (
-          playerData.latchedNpcIds.length < MAX_SIMULTANEOUS_LATCHES &&
+          playerData.latchedNpcIds.length === 0 &&
           playerData.dashTime > 0
         ) {
           const postMoveDistance = Math.hypot(
@@ -385,48 +455,58 @@ export function PrototypeScene({
             npc.z - playerData.z,
           );
           if (postMoveDistance < TAG_RADIUS) {
-            const slot = playerData.latchedNpcIds.length;
-            playerData.latchedNpcIds.push(index);
+            // Latch this pug first…
+            latchNpc(npc, index, playerData, npcActions.current);
+            // …then splash-grab any other pugs within an expanded radius in
+            // the same frame, up to MAX_SIMULTANEOUS_LATCHES. This replaces
+            // the old "keep dashing through more pugs" chain mechanic with
+            // a single clean grab — no slide, no NPC teleport snap.
+            const splashRadius = TAG_RADIUS * LATCH_SPLASH_RADIUS_MULT;
+            npcData.forEach((other, otherIndex) => {
+              if (otherIndex === index) return;
+              if (other.isLatched || other.taggedCooldown > 0) return;
+              if (
+                playerData.latchedNpcIds.length >= MAX_SIMULTANEOUS_LATCHES
+              ) {
+                return;
+              }
+              const d = Math.hypot(
+                other.x - playerData.x,
+                other.z - playerData.z,
+              );
+              if (d < splashRadius) {
+                latchNpc(other, otherIndex, playerData, npcActions.current);
+              }
+            });
+
+            const chainSize = playerData.latchedNpcIds.length;
+            const inGoalMouth =
+              Math.abs(npc.x) >= FIELD_HALF_X - GOAL_LINE_THRESHOLD &&
+              Math.abs(npc.z) <= GOAL_WIDTH / 2;
+            if (inGoalMouth) {
+              spawnConfetti(
+                confettiParticles.current,
+                playerData.x,
+                playerData.z,
+              );
+            }
             // Defer parent setState out of the useFrame tick so it doesn't
             // synchronously re-render the Canvas tree mid-frame.
-            const chainSize = playerData.latchedNpcIds.length;
-            queueMicrotask(() => onTag(chainSize));
+            queueMicrotask(() => onTag(chainSize, inGoalMouth));
             playerData.latchTime = LATCH_DURATION;
-            // Don't hard-zero velocity here — the latched `accel = 0.5` lerp
-            // pulls it toward zero across the next few frames, which keeps
-            // `cameraFocus` tracking smoothly into the latch instead of
-            // slamming to a halt and creating a visible jerk.
-            npc.isLatched = true;
-            npc.taggedCooldown = NPC_RESPAWN_DELAY;
-            // Snap NPC into the latched pose on the same frame as the tag.
-            const forwardOffset = 0.65;
-            const sideStep = 0.5;
-            const sideOffset =
-              slot === 0 ? 0 : (slot % 2 === 1 ? 1 : -1) * sideStep * Math.ceil(slot / 2);
-            const perpX = -playerData.facingZ;
-            const perpZ = playerData.facingX;
-            const snapTarget = clampToArena(
-              playerData.x + playerData.facingX * forwardOffset + perpX * sideOffset,
-              playerData.z + playerData.facingZ * forwardOffset + perpZ * sideOffset,
-            );
-            npc.x = snapTarget.x;
-            npc.z = snapTarget.z;
-            npc.dirX = playerData.facingX;
-            npc.dirZ = playerData.facingZ;
-            npcActions.current[index] = 'react';
+            // Stop the dash entirely — no forward slide through the latch
+            // animation. Drop any buffered dash press too.
+            playerData.dashTime = 0;
+            playerData.velocityX = 0;
+            playerData.velocityZ = 0;
+            playerData.dashRequestedAt = -1000;
             hitstopTime.current = HITSTOP_DURATION;
-            // Store the burst as an offset from the player's current position
-            // so the ring follows the character during the latch instead of
-            // sticking to where they were at the moment of impact.
+            // Burst centered on the first latched pug.
             spawnBurst(
               burstStates.current,
               npc.x - playerData.x,
               npc.z - playerData.z,
             );
-
-            if (playerData.latchedNpcIds.length >= MAX_SIMULTANEOUS_LATCHES) {
-              playerData.dashTime = 0;
-            }
           }
         }
       });
@@ -607,6 +687,50 @@ export function PrototypeScene({
       material.transparent = true;
       material.opacity = (1 - t) * 0.85;
     });
+
+    confettiParticles.current.forEach((p, index) => {
+      const node = confettiGroups.current[index];
+      if (!node) return;
+      if (!p.active) {
+        node.visible = false;
+        return;
+      }
+      p.age += rawDelta;
+      if (p.age >= p.lifetime) {
+        p.active = false;
+        node.visible = false;
+        return;
+      }
+      // Gravity + light air drag on horizontal motion.
+      p.vy -= 9 * rawDelta;
+      const drag = Math.pow(0.94, rawDelta * 60);
+      p.vx *= drag;
+      p.vz *= drag;
+      p.x += p.vx * rawDelta;
+      p.y += p.vy * rawDelta;
+      p.z += p.vz * rawDelta;
+      if (p.y < 0.02) {
+        p.y = 0.02;
+        // Settle on the ground — kill vertical, damp horizontal so confetti
+        // doesn't slide forever.
+        p.vy = 0;
+        p.vx *= 0.45;
+        p.vz *= 0.45;
+        p.spinX *= 0.4;
+        p.spinZ *= 0.4;
+      }
+      p.rotX += p.spinX * rawDelta;
+      p.rotY += p.spinY * rawDelta;
+      p.rotZ += p.spinZ * rawDelta;
+      node.position.set(p.x, p.y, p.z);
+      node.rotation.set(p.rotX, p.rotY, p.rotZ);
+      const lifeT = p.age / p.lifetime;
+      // Fade by scaling down over the last 30% of life — cheaper than per-mesh
+      // material opacity updates and visually similar.
+      const fade = lifeT > 0.7 ? Math.max(0, 1 - (lifeT - 0.7) / 0.3) : 1;
+      node.scale.setScalar(fade);
+      node.visible = true;
+    });
   });
 
   return (
@@ -698,6 +822,25 @@ export function PrototypeScene({
           </mesh>
         </group>
       ))}
+
+      {Array.from({ length: CONFETTI_COUNT }, (_, index) => (
+        <group
+          key={`confetti-${index}`}
+          ref={(node) => {
+            confettiGroups.current[index] = node;
+          }}
+          visible={false}
+        >
+          <mesh>
+            <boxGeometry args={[0.16, 0.025, 0.22]} />
+            <meshStandardMaterial
+              color={CONFETTI_COLORS[index % CONFETTI_COLORS.length]}
+              roughness={0.55}
+              metalness={0.05}
+            />
+          </mesh>
+        </group>
+      ))}
     </>
   );
 }
@@ -712,6 +855,56 @@ function spawnBurst(
   burst.age = 0;
   burst.offsetX = offsetX;
   burst.offsetZ = offsetZ;
+}
+
+function latchNpc(
+  npc: NpcState,
+  index: number,
+  playerData: PlayerState,
+  actions: CharacterAction[],
+) {
+  playerData.latchedNpcIds.push(index);
+  npc.isLatched = true;
+  npc.taggedCooldown = NPC_RESPAWN_DELAY;
+  // Record the pug's position at the moment of catch — the follow loop
+  // lerps from this origin into the formation slot over LATCH_SNAP_DURATION
+  // instead of teleporting.
+  npc.latchOriginX = npc.x;
+  npc.latchOriginZ = npc.z;
+  npc.latchAge = 0;
+  npc.dirX = playerData.facingX;
+  npc.dirZ = playerData.facingZ;
+  actions[index] = 'react';
+}
+
+function spawnConfetti(
+  particles: ConfettiParticle[],
+  x: number,
+  z: number,
+) {
+  let spawned = 0;
+  for (const p of particles) {
+    if (spawned >= CONFETTI_SPAWN_PER_GOAL) break;
+    if (p.active) continue;
+    p.active = true;
+    p.age = 0;
+    p.lifetime = 2 + Math.random() * 0.9;
+    p.x = x + (Math.random() - 0.5) * 0.5;
+    p.y = 0.6 + Math.random() * 0.4;
+    p.z = z + (Math.random() - 0.5) * 0.5;
+    const angle = Math.random() * Math.PI * 2;
+    const horiz = 1.4 + Math.random() * 2.6;
+    p.vx = Math.cos(angle) * horiz;
+    p.vz = Math.sin(angle) * horiz;
+    p.vy = 3.2 + Math.random() * 2.6;
+    p.rotX = Math.random() * Math.PI * 2;
+    p.rotY = Math.random() * Math.PI * 2;
+    p.rotZ = Math.random() * Math.PI * 2;
+    p.spinX = (Math.random() - 0.5) * 14;
+    p.spinY = (Math.random() - 0.5) * 14;
+    p.spinZ = (Math.random() - 0.5) * 14;
+    spawned += 1;
+  }
 }
 
 function createPlayerState(): PlayerState {
@@ -780,5 +973,8 @@ function createNpcState(
     bob: index * 0.6,
     speed: 2.55 + index * 0.18,
     fleeBoost: 1,
+    latchOriginX: 0,
+    latchOriginZ: 0,
+    latchAge: 0,
   };
 }

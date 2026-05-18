@@ -2,7 +2,12 @@ import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
-import { CAMERA_POSITION, ROUND_DURATION } from './game/config';
+import {
+  CAMERA_POSITION,
+  GOAL_SCORE_MULTIPLIER,
+  GOAL_SHOUT_COOLDOWN,
+  ROUND_DURATION,
+} from './game/config';
 import { clampInput } from './game/input';
 import { Overlay } from './game/Overlay';
 import { PrototypeScene } from './game/PrototypeScene';
@@ -31,12 +36,14 @@ function App() {
   const {
     playDash,
     playTag,
+    playCheer,
     playRoundStart,
     playRoundEnd,
     playCountdownTick,
     setRoundLoopActive,
     resumeAudio,
   } = useArcadeAudio(isMuted);
+  const lastGoalShoutAtRef = useRef(0);
   const [lang, setLang] = useState<Lang>(() => {
     if (globalThis.window === undefined) return DEFAULT_LANG;
     const stored = globalThis.sessionStorage.getItem('pug-banger-fiesta-lang');
@@ -352,13 +359,23 @@ function App() {
             baseZoom={cameraZoom}
             introZoomOut={mode === 'playing' && countdown !== null}
             onDashStart={playDash}
-            onTag={(chainSize) => {
-              const multiPhrase = strings.multiTagPhrases[chainSize];
-              const phrase = multiPhrase ?? pickRandomTagPhrase(lang);
-              playTag();
-              speakPhrase(phrase);
+            onTag={(chainSize, inGoal) => {
+              const points = inGoal ? GOAL_SCORE_MULTIPLIER : 1;
+              if (inGoal) {
+                const now = performance.now() / 1000;
+                playCheer();
+                if (now - lastGoalShoutAtRef.current >= GOAL_SHOUT_COOLDOWN) {
+                  speakPhrase(strings.goalShout);
+                  lastGoalShoutAtRef.current = now;
+                }
+              } else {
+                const multiPhrase = strings.multiTagPhrases[chainSize];
+                const phrase = multiPhrase ?? pickRandomTagPhrase(lang);
+                playTag();
+                speakPhrase(phrase);
+              }
               setScore((value) => {
-                const nextScore = value + 1;
+                const nextScore = value + points;
                 if (nextScore > bestScore) {
                   setBestScore(nextScore);
                   window.sessionStorage.setItem(
