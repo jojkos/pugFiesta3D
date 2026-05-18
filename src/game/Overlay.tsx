@@ -42,10 +42,22 @@ const TEAMS: readonly Team[] = [
   { id: 'tamara',     label: 'Tamara',       primary: '#f838a8' },
   { id: 'jzm',        label: 'JZM',          primary: '#034c2b' },
   { id: 'tichu',      label: 'Díra v tichu', primary: '#63b8f9' },
+  { id: 'hrana',      label: 'Hrana',        primary: '#f5c842', accent: '#cdbfa2' },
 ];
 
 function eqHex(a: string, b: string) {
   return a.toLowerCase() === b.toLowerCase();
+}
+
+function isLightColor(hex: string): boolean {
+  const value = hex.replace('#', '');
+  if (value.length !== 6) return true;
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  // Standard luminance approximation.
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6;
 }
 
 function findTeam(primary: string, accent: string): Team | undefined {
@@ -258,7 +270,7 @@ export function Overlay({
 
   useEffect(() => {
     if (mode === 'gameOver' && submitState === 'idle' && typeof window !== 'undefined') {
-      const stored = window.localStorage.getItem('pug-banger-fiesta-player-name') ?? '';
+      const stored = window.sessionStorage.getItem('pug-banger-fiesta-player-name') ?? '';
       setPendingName(stored);
     }
   }, [mode, submitState]);
@@ -270,7 +282,7 @@ export function Overlay({
     if (!trimmed) return;
     setSubmitState('submitting');
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem('pug-banger-fiesta-player-name', trimmed);
+      window.sessionStorage.setItem('pug-banger-fiesta-player-name', trimmed);
     }
     await onSubmitScore(trimmed);
     setSubmitState('done');
@@ -279,6 +291,7 @@ export function Overlay({
   const langLabel = LANG_LABELS[lang];
   const langFlag = LANG_FLAGS[lang];
   const currentTeam = findTeam(jerseyColor, jerseyAccentColor);
+  const isSolid = eqHex(jerseyColor, jerseyAccentColor);
   const teamLabel = currentTeam?.label ?? strings.menu.teamCustom;
   const voiceLabel =
     voiceCharacters.find((character) => character.voiceId === voiceId)?.label ??
@@ -290,26 +303,28 @@ export function Overlay({
   return (
     <>
 
-      <div className="control-cluster">
-        <button
-          type="button"
-          className="utility-button"
-          aria-label={isMuted ? strings.controls.enableSound : strings.controls.muteSound}
-          onClick={onToggleMute}
-        >
-          {isMuted ? '🔇' : '🔊'}
-        </button>
-        {mode === 'playing' && countdown === null && (
+      {mode !== 'menu' && (
+        <div className="control-cluster">
           <button
             type="button"
             className="utility-button"
-            aria-label={paused ? strings.controls.resume : strings.controls.pause}
-            onClick={onTogglePause}
+            aria-label={isMuted ? strings.controls.enableSound : strings.controls.muteSound}
+            onClick={onToggleMute}
           >
-            {paused ? '▶' : '⏸'}
+            {isMuted ? '🔇' : '🔊'}
           </button>
-        )}
-      </div>
+          {mode === 'playing' && countdown === null && (
+            <button
+              type="button"
+              className="utility-button"
+              aria-label={paused ? strings.controls.resume : strings.controls.pause}
+              onClick={onTogglePause}
+            >
+              {paused ? '▶' : '⏸'}
+            </button>
+          )}
+        </div>
+      )}
 
       {mode === 'playing' && countdown !== null && (
         <div className="countdown-overlay">
@@ -366,6 +381,16 @@ export function Overlay({
         <div className="modal-backdrop is-menu">
           <section className="menu">
             <div className="menu-toolbar">
+              <button
+                type="button"
+                className={`menu-tool-btn ${isMuted ? 'is-active' : ''}`}
+                aria-label={isMuted ? strings.controls.enableSound : strings.controls.muteSound}
+                aria-pressed={isMuted}
+                title={isMuted ? strings.controls.enableSound : strings.controls.muteSound}
+                onClick={onToggleMute}
+              >
+                {isMuted ? '🔇' : '🔊'}
+              </button>
               <FullscreenButton label={strings.controls.fullscreen} />
               <button
                 type="button"
@@ -462,6 +487,43 @@ export function Overlay({
                       <p className="menu-pop-title">
                         {currentTeam ? strings.menu.teamTuning : strings.menu.teamCustom}
                       </p>
+                      <div
+                        className="team-mode"
+                        role="tablist"
+                        aria-label={strings.menu.teamCustom}
+                      >
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={isSolid}
+                          className={`team-mode-btn ${isSolid ? 'on' : ''}`}
+                          onClick={() => {
+                            if (!isSolid) {
+                              onJerseyAccentColorChange(jerseyColor);
+                            }
+                          }}
+                        >
+                          {strings.menu.teamModeSolid}
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={!isSolid}
+                          className={`team-mode-btn ${!isSolid ? 'on' : ''}`}
+                          onClick={() => {
+                            if (isSolid) {
+                              // Pick a contrasting default so the stripe is
+                              // visible — black on light primaries, white on
+                              // dark ones.
+                              onJerseyAccentColorChange(
+                                isLightColor(jerseyColor) ? '#1a1a1a' : '#ffffff',
+                              );
+                            }
+                          }}
+                        >
+                          {strings.menu.teamModeStripe}
+                        </button>
+                      </div>
                       <div className="team-custom-row">
                         <label className="team-color-pick">
                           <span
@@ -471,7 +533,13 @@ export function Overlay({
                             <input
                               type="color"
                               value={jerseyColor}
-                              onChange={(event) => onJerseyColorChange(event.target.value)}
+                              onChange={(event) => {
+                                const next = event.target.value;
+                                // In Solid mode, keep accent locked to the
+                                // primary so the jersey stays one color.
+                                if (isSolid) onJerseyAccentColorChange(next);
+                                onJerseyColorChange(next);
+                              }}
                             />
                           </span>
                           <span className="team-color-label">
@@ -479,24 +547,26 @@ export function Overlay({
                             <strong>{jerseyColor.toUpperCase()}</strong>
                           </span>
                         </label>
-                        <label className="team-color-pick">
-                          <span
-                            className="team-color-swatch"
-                            style={{ background: jerseyAccentColor }}
-                          >
-                            <input
-                              type="color"
-                              value={jerseyAccentColor}
-                              onChange={(event) =>
-                                onJerseyAccentColorChange(event.target.value)
-                              }
-                            />
-                          </span>
-                          <span className="team-color-label">
-                            <small>{strings.menu.teamAccentLabel}</small>
-                            <strong>{jerseyAccentColor.toUpperCase()}</strong>
-                          </span>
-                        </label>
+                        {!isSolid && (
+                          <label className="team-color-pick">
+                            <span
+                              className="team-color-swatch"
+                              style={{ background: jerseyAccentColor }}
+                            >
+                              <input
+                                type="color"
+                                value={jerseyAccentColor}
+                                onChange={(event) =>
+                                  onJerseyAccentColorChange(event.target.value)
+                                }
+                              />
+                            </span>
+                            <span className="team-color-label">
+                              <small>{strings.menu.teamAccentLabel}</small>
+                              <strong>{jerseyAccentColor.toUpperCase()}</strong>
+                            </span>
+                          </label>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -39,7 +39,7 @@ function App() {
   } = useArcadeAudio(isMuted);
   const [lang, setLang] = useState<Lang>(() => {
     if (globalThis.window === undefined) return DEFAULT_LANG;
-    const stored = globalThis.localStorage.getItem('pug-banger-fiesta-lang');
+    const stored = globalThis.sessionStorage.getItem('pug-banger-fiesta-lang');
     if (stored && (SUPPORTED_LANGS as string[]).includes(stored)) {
       return stored as Lang;
     }
@@ -58,7 +58,7 @@ function App() {
   const [voiceId, setVoiceId] = useState(() => {
     const fallback = defaultVoiceForLang(lang);
     if (globalThis.window === undefined) return fallback;
-    const stored = globalThis.localStorage.getItem('pug-banger-fiesta-voice-id');
+    const stored = globalThis.sessionStorage.getItem('pug-banger-fiesta-voice-id');
     if (stored && isVoiceInLang(stored, lang)) return stored;
     return fallback;
   });
@@ -70,23 +70,23 @@ function App() {
       return 0;
     }
 
-    return Number(window.localStorage.getItem('pug-banger-fiesta-best-score') ?? 0) || 0;
+    return Number(window.sessionStorage.getItem('pug-banger-fiesta-best-score') ?? 0) || 0;
   });
   const [bestBeforeRound, setBestBeforeRound] = useState(bestScore);
+  // Default team: Psí děvky (white primary, blue accent).
   const [jerseyColor, setJerseyColor] = useState(() => {
     if (typeof window === 'undefined') {
-      return '#f5f1ea';
+      return '#ffffff';
     }
-    return window.localStorage.getItem('pug-banger-fiesta-jersey-color') ?? '#f5f1ea';
+    return window.sessionStorage.getItem('pug-banger-fiesta-jersey-color') ?? '#ffffff';
   });
   const [jerseyAccentColor, setJerseyAccentColor] = useState(() => {
     if (typeof window === 'undefined') {
-      return '#f5f1ea';
+      return '#033e8f';
     }
     return (
-      window.localStorage.getItem('pug-banger-fiesta-jersey-accent-color') ??
-      window.localStorage.getItem('pug-banger-fiesta-jersey-color') ??
-      '#f5f1ea'
+      window.sessionStorage.getItem('pug-banger-fiesta-jersey-accent-color') ??
+      '#033e8f'
     );
   });
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
@@ -361,7 +361,7 @@ function App() {
                 const nextScore = value + 1;
                 if (nextScore > bestScore) {
                   setBestScore(nextScore);
-                  window.localStorage.setItem(
+                  window.sessionStorage.setItem(
                     'pug-banger-fiesta-best-score',
                     String(nextScore),
                   );
@@ -384,13 +384,13 @@ function App() {
           onJerseyColorChange={(color) => {
             setJerseyColor(color);
             if (typeof window !== 'undefined') {
-              window.localStorage.setItem('pug-banger-fiesta-jersey-color', color);
+              window.sessionStorage.setItem('pug-banger-fiesta-jersey-color', color);
             }
           }}
           onJerseyAccentColorChange={(color) => {
             setJerseyAccentColor(color);
             if (typeof window !== 'undefined') {
-              window.localStorage.setItem('pug-banger-fiesta-jersey-accent-color', color);
+              window.sessionStorage.setItem('pug-banger-fiesta-jersey-accent-color', color);
             }
           }}
           onStartRound={startRound}
@@ -404,7 +404,7 @@ function App() {
           onVoiceChange={(next) => {
             setVoiceId(next);
             if (globalThis.window !== undefined) {
-              globalThis.localStorage.setItem('pug-banger-fiesta-voice-id', next);
+              globalThis.sessionStorage.setItem('pug-banger-fiesta-voice-id', next);
             }
             playVoiceSample(next, isMuted, strings.tagPhrases[0], lang);
           }}
@@ -413,13 +413,13 @@ function App() {
           onLangChange={(next) => {
             setLang(next);
             if (globalThis.window !== undefined) {
-              globalThis.localStorage.setItem('pug-banger-fiesta-lang', next);
+              globalThis.sessionStorage.setItem('pug-banger-fiesta-lang', next);
             }
             if (!isVoiceInLang(voiceId, next)) {
               const nextVoice = defaultVoiceForLang(next);
               setVoiceId(nextVoice);
               if (globalThis.window !== undefined) {
-                globalThis.localStorage.setItem(
+                globalThis.sessionStorage.setItem(
                   'pug-banger-fiesta-voice-id',
                   nextVoice,
                 );

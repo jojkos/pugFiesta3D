@@ -103,9 +103,6 @@ export function PrototypeScene({
   const lastDashNonce = useRef(0);
   const facingVector = useRef(new Vector2(0, 1));
   const cameraFocus = useRef(new Vector3(0, 0, 0));
-  const cameraShake = useRef(0);
-  const cameraShakeDirX = useRef(0);
-  const cameraShakeDirZ = useRef(0);
   const hitstopTime = useRef(0);
   const burstStates = useRef<TagBurstState[]>(
     Array.from({ length: BURST_COUNT }, () => ({
@@ -175,7 +172,6 @@ export function PrototypeScene({
     lastDashNonce.current = dashNonce;
     facingVector.current.set(0, 1);
     cameraFocus.current.set(0, 0, 0);
-    cameraShake.current = 0;
     hitstopTime.current = 0;
     burstStates.current.forEach((burst) => {
       burst.active = false;
@@ -393,8 +389,10 @@ export function PrototypeScene({
             const chainSize = playerData.latchedNpcIds.length;
             queueMicrotask(() => onTag(chainSize));
             playerData.latchTime = LATCH_DURATION;
-            playerData.velocityX = 0;
-            playerData.velocityZ = 0;
+            // Don't hard-zero velocity here — the latched `accel = 0.5` lerp
+            // pulls it toward zero across the next few frames, which keeps
+            // `cameraFocus` tracking smoothly into the latch instead of
+            // slamming to a halt and creating a visible jerk.
             npc.isLatched = true;
             npc.taggedCooldown = NPC_RESPAWN_DELAY;
             // Snap NPC into the latched pose on the same frame as the tag.
@@ -414,9 +412,6 @@ export function PrototypeScene({
             npc.dirZ = playerData.facingZ;
             npcActions.current[index] = 'react';
             hitstopTime.current = HITSTOP_DURATION;
-            cameraShake.current = 1;
-            cameraShakeDirX.current = playerData.facingX;
-            cameraShakeDirZ.current = playerData.facingZ;
             spawnBurst(burstStates.current, npc.x, npc.z);
 
             if (playerData.latchedNpcIds.length >= MAX_SIMULTANEOUS_LATCHES) {
@@ -443,11 +438,6 @@ export function PrototypeScene({
       playerAction.current = 'idle';
     }
 
-    cameraShake.current = Math.max(0, cameraShake.current - rawDelta * 6);
-    const shakeAmount = cameraShake.current * 0.32;
-    const shakeOffsetX = cameraShakeDirX.current * shakeAmount;
-    const shakeOffsetZ = cameraShakeDirZ.current * shakeAmount;
-
     cameraFocus.current.lerp(
       scratchCameraFocus.current.set(
         playerData.x * 0.32,
@@ -459,15 +449,11 @@ export function PrototypeScene({
     // Set position AND lookAt from the same already-smoothed focus value
     // so the camera pans purely instead of rotating (no lerp-lag between them).
     camera.position.set(
-      CAMERA_POSITION.x + cameraFocus.current.x + shakeOffsetX,
+      CAMERA_POSITION.x + cameraFocus.current.x,
       CAMERA_POSITION.y,
-      CAMERA_POSITION.z + cameraFocus.current.z + shakeOffsetZ,
+      CAMERA_POSITION.z + cameraFocus.current.z,
     );
-    camera.lookAt(
-      cameraFocus.current.x + shakeOffsetX,
-      0,
-      cameraFocus.current.z + shakeOffsetZ,
-    );
+    camera.lookAt(cameraFocus.current.x, 0, cameraFocus.current.z);
 
     // Intro zoom: hold camera zoomed-out during the 3-2-1 countdown, then
     // smoothly zoom in to the responsive base zoom once the round starts.
