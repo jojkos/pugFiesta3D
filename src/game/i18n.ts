@@ -22,7 +22,7 @@ const cs = {
     teamPrimaryLabel: 'Barva',
     teamAccentLabel: 'Pruh',
     teamModeSolid: 'Jednobarevný',
-    teamModeStripe: 'S pruhem',
+    teamModeStripe: 'Dvoubarevný',
     start: 'ZAHÁJIT HONITBU',
     bestSoFar: (n: number) => `Zatím nejvíc nalapaných: ${n} čubiček`,
     controlsMobileHint: 'Joystick · Kliknutí na BANG',
