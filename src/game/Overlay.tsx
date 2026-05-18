@@ -72,6 +72,18 @@ function teamBadgeBackground(team: Team): string {
   return `linear-gradient(110deg, ${team.primary} 0%, ${team.primary} 50%, ${team.accent} 50%, ${team.accent} 100%)`;
 }
 
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+};
+
+function isAppInstalled(): boolean {
+  if (typeof window === 'undefined') return false;
+  const standaloneMedia = window.matchMedia?.('(display-mode: standalone)').matches ?? false;
+  const iosStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return standaloneMedia || iosStandalone;
+}
+
 function isIosWebContext(): boolean {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';
@@ -257,6 +269,46 @@ export function Overlay({
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'done'>('idle');
   const [menuLeaderboardOpen, setMenuLeaderboardOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
+  const [isInstalled, setIsInstalled] = useState(() => isAppInstalled());
+  const [installInstructionsOpen, setInstallInstructionsOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as InstallPromptEvent);
+    };
+    const onInstalled = () => {
+      setIsInstalled(true);
+      setInstallPrompt(null);
+      setInstallInstructionsOpen(false);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
+  const handleInstall = useCallback(async () => {
+    if (installPrompt) {
+      try {
+        await installPrompt.prompt();
+        const choice = await installPrompt.userChoice;
+        console.log('Install choice', choice);
+        if (choice.outcome === 'accepted') {
+          setIsInstalled(true);
+        }
+      } finally {
+        setInstallPrompt(null);
+      }
+      return;
+    }
+    setInstallInstructionsOpen(true);
+  }, [installPrompt]);
+
+  const canShowInstall = !isInstalled;
 
   useEffect(() => {
     if (mode !== 'gameOver') {
@@ -658,12 +710,71 @@ export function Overlay({
                     <h4>{strings.help.mobileHeading}</h4>
                     <p>{strings.help.mobileBody}</p>
                   </div>
+                  {canShowInstall && (
+                    <div className="help-section help-section-install">
+                      <div className="help-install-text">
+                        <h4>📲 {strings.install.title}</h4>
+                        <p>{strings.install.intro}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="help-install-btn"
+                        onClick={handleInstall}
+                      >
+                        {strings.menu.install}
+                      </button>
+                    </div>
+                  )}
                   {isIosWebContext() && (
                     <div className="help-section help-section-ios">
                       <h4>{strings.help.iosHeading}</h4>
                       <p>{strings.help.iosBody}</p>
                     </div>
                   )}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {installInstructionsOpen && (
+            <div
+              className="help-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-label={strings.install.title}
+              onClick={() => setInstallInstructionsOpen(false)}
+            >
+              <section
+                className="help-panel"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <header className="help-panel-head">
+                  <h3 className="help-panel-title">📲 {strings.install.title}</h3>
+                  <button
+                    type="button"
+                    className="help-panel-close"
+                    aria-label={strings.install.close}
+                    onClick={() => setInstallInstructionsOpen(false)}
+                  >
+                    ✕
+                  </button>
+                </header>
+                <div className="help-panel-body">
+                  <div className="help-section">
+                    <p>{strings.install.intro}</p>
+                  </div>
+                  <div className="help-section">
+                    <h4>{strings.install.iosHeading}</h4>
+                    <p>{strings.install.iosBody}</p>
+                  </div>
+                  <div className="help-section">
+                    <h4>{strings.install.androidHeading}</h4>
+                    <p>{strings.install.androidBody}</p>
+                  </div>
+                  <div className="help-section">
+                    <h4>{strings.install.desktopHeading}</h4>
+                    <p>{strings.install.desktopBody}</p>
+                  </div>
                 </div>
               </section>
             </div>
