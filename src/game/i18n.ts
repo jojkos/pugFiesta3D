@@ -40,6 +40,12 @@ const cs = {
     desktopBody: 'V Chrome/Edge klikni v adresním řádku na ikonu instalace (︙ → Nainstalovat).',
     close: 'Zavřít',
   },
+  iosNudge: {
+    title: 'Nainstaluj na plochu',
+    body: 'Safari neumí fullscreen z webu. Přidej hru na plochu a hraj naplno, bez baru.',
+    cta: 'Jak na to',
+    dismiss: 'Možná později',
+  },
   pause: {
     eyebrow: 'pauza',
     title: 'Vydejchej se',
@@ -152,6 +158,12 @@ const en: typeof cs = {
     desktopHeading: '🖥️ Desktop',
     desktopBody: 'In Chrome/Edge, click the install icon in the address bar (or ︙ → Install).',
     close: 'Close',
+  },
+  iosNudge: {
+    title: 'Install on home screen',
+    body: 'iOS Safari can\'t go fullscreen from the web. Add the game to your home screen and play with no browser chrome.',
+    cta: 'How to',
+    dismiss: 'Maybe later',
   },
   pause: {
     eyebrow: 'paused',
