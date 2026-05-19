@@ -124,40 +124,23 @@ function useFullscreen() {
   return { isFullscreen, toggle, supported };
 }
 
-function useIsPwa() {
-  const [isPwa, setIsPwa] = useState(() => detectPwa());
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const standalone = window.matchMedia?.('(display-mode: standalone)');
-    const fullscreen = window.matchMedia?.('(display-mode: fullscreen)');
-    const update = () => setIsPwa(detectPwa());
-    standalone?.addEventListener?.('change', update);
-    fullscreen?.addEventListener?.('change', update);
-    window.addEventListener('appinstalled', update);
-    return () => {
-      standalone?.removeEventListener?.('change', update);
-      fullscreen?.removeEventListener?.('change', update);
-      window.removeEventListener('appinstalled', update);
-    };
-  }, []);
-
-  return isPwa;
-}
-
-function detectPwa(): boolean {
+// Captured once at module init, before any Fullscreen API call can flip
+// display-mode to 'fullscreen' transiently. Tells us whether the page
+// was launched as an installed PWA (Android Chrome 'fullscreen' from the
+// manifest, desktop/Android 'standalone', or iOS Safari home-screen
+// standalone).
+const LAUNCHED_AS_PWA: boolean = (() => {
   if (typeof window === 'undefined') return false;
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches ?? false;
   const fullscreen = window.matchMedia?.('(display-mode: fullscreen)').matches ?? false;
   const iosStandalone =
     (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
   return standalone || fullscreen || iosStandalone;
-}
+})();
 
 function FullscreenButton({ label }: Readonly<{ label: string }>) {
   const { isFullscreen, toggle, supported } = useFullscreen();
-  const isPwa = useIsPwa();
-  if (!supported || isPwa) return null;
+  if (!supported || LAUNCHED_AS_PWA) return null;
   return (
     <button
       type="button"
