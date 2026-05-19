@@ -38,10 +38,10 @@ function App() {
     playDash,
     playTag,
     playCheer,
-    playRoundStart,
-    playRoundEnd,
+    playWhistle,
     playCountdownTick,
-    setRoundLoopActive,
+    playMusicTrack,
+    setMusicPlaybackRate,
     resumeAudio,
   } = useArcadeAudio(isMuted);
   const lastGoalShoutAtRef = useRef(0);
@@ -109,6 +109,9 @@ function App() {
   const [dashNonce, setDashNonce] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [startingRound, setStartingRound] = useState(false);
+  // After the final whistle, we freeze the scene + stop the music for a short
+  // beat before showing the game-over menu — gives the moment room to breathe.
+  const [roundEnding, setRoundEnding] = useState(false);
   const [joystick, setJoystick] = useState<AnalogInput>({ x: 0, y: 0 });
   const [cameraZoom, setCameraZoom] = useState(() => computeCameraZoom());
 
@@ -223,15 +226,23 @@ function App() {
     timeLeftRef.current = timeLeft;
   }, [timeLeft]);
 
+  // Mode-driven music selection:
+  // - Menu / game-over: menu loop
+  // - Playing (incl. countdown / paused): ingame loop
+  // The audio context can only be resumed by a user gesture, so on mobile the
+  // menu track will stay silent until the user first taps anything (the Start
+  // button calls resumeAudio() inside the click handler).
   useEffect(() => {
-    setRoundLoopActive(
-      mode === 'playing' && !paused && countdown === null && !startingRound,
-    );
-
-    return () => {
-      setRoundLoopActive(false);
-    };
-  }, [countdown, mode, paused, setRoundLoopActive, startingRound]);
+    if (roundEnding) {
+      // Cut music during the post-whistle silence beat — the moment lands
+      // harder without an active loop running underneath it.
+      playMusicTrack(null);
+    } else if (mode === 'playing') {
+      playMusicTrack('ingame');
+    } else {
+      playMusicTrack('menu');
+    }
+  }, [mode, roundEnding, playMusicTrack]);
 
   useEffect(() => {
     if (!startingRound) {
@@ -254,11 +265,16 @@ function App() {
     playCountdownTick();
 
     const timeoutId = window.setTimeout(() => {
+      // Closure captures the countdown value this effect was scheduled with —
+      // safe to fire the whistle here instead of inside the setState updater
+      // (which Strict Mode would run twice in dev).
+      if (countdown <= 1) {
+        playWhistleRef.current();
+      }
       setCountdown((current) => {
         if (current === null) {
           return null;
         }
-
         return current <= 1 ? null : current - 1;
       });
     }, 700);
@@ -266,20 +282,55 @@ function App() {
     return () => window.clearTimeout(timeoutId);
   }, [countdown, playCountdownTick]);
 
-  const playRoundEndRef = useRef(playRoundEnd);
+  const playWhistleRef = useRef(playWhistle);
   useEffect(() => {
-    playRoundEndRef.current = playRoundEnd;
-  }, [playRoundEnd]);
+    playWhistleRef.current = playWhistle;
+  }, [playWhistle]);
 
   const playCountdownTickRef = useRef(playCountdownTick);
   useEffect(() => {
     playCountdownTickRef.current = playCountdownTick;
   }, [playCountdownTick]);
 
+  const setMusicPlaybackRateRef = useRef(setMusicPlaybackRate);
+  useEffect(() => {
+    setMusicPlaybackRateRef.current = setMusicPlaybackRate;
+  }, [setMusicPlaybackRate]);
+
+  const refreshLeaderboardRef = useRef(refreshLeaderboard);
+  useEffect(() => {
+    refreshLeaderboardRef.current = refreshLeaderboard;
+  }, [refreshLeaderboard]);
+
+  // Once the round ends, hold the frozen state for ROUND_END_HOLD_MS so the
+  // whistle and the visual stillness can land — then flip to gameOver, which
+  // brings up the menu (fading in via CSS).
+  const ROUND_END_HOLD_MS = 1500;
+  useEffect(() => {
+    if (!roundEnding) {
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      setRoundEnding(false);
+      setMode('gameOver');
+    }, ROUND_END_HOLD_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [roundEnding]);
+
   useEffect(() => {
     if (mode !== 'playing' || paused || countdown !== null || startingRound) {
       return;
     }
+
+    // Music tempo ramps up in two stages over the final 10 seconds:
+    //   - 10s → 5s remaining: rate climbs 1.0 → 1.25
+    //   - 5s → 0s remaining:  rate climbs 1.25 → 1.5
+    // playbackRate also pitches up, which is the classic arcade "time running
+    // out" panic-music feel.
+    const FINALE_STAGE_1_START = 10;
+    const FINALE_STAGE_2_START = 5;
+    const FINALE_STAGE_1_RATE = 1.25;
+    const FINALE_STAGE_2_RATE = 1.5;
 
     const startedAt =
       performance.now() - (ROUND_DURATION - timeLeftRef.current) * 1000;
@@ -300,11 +351,28 @@ function App() {
         }
       }
 
+      let targetRate = 1;
+      if (remaining < FINALE_STAGE_2_START) {
+        const progress =
+          (FINALE_STAGE_2_START - remaining) / FINALE_STAGE_2_START;
+        targetRate =
+          FINALE_STAGE_1_RATE +
+          (FINALE_STAGE_2_RATE - FINALE_STAGE_1_RATE) * progress;
+      } else if (remaining < FINALE_STAGE_1_START) {
+        const progress =
+          (FINALE_STAGE_1_START - remaining) /
+          (FINALE_STAGE_1_START - FINALE_STAGE_2_START);
+        targetRate = 1 + (FINALE_STAGE_1_RATE - 1) * progress;
+      }
+      setMusicPlaybackRateRef.current(targetRate);
+
       if (remaining <= 0) {
-        playRoundEndRef.current();
+        playWhistleRef.current();
         setSubmittedEntryId(null);
-        setMode('gameOver');
-        void refreshLeaderboard();
+        // Freeze the scene + stop the music; a separate effect transitions to
+        // 'gameOver' after a short beat for breathing room before the menu.
+        setRoundEnding(true);
+        void refreshLeaderboardRef.current();
         return;
       }
 
@@ -333,7 +401,6 @@ function App() {
     // the gesture and the first round goes silent.
     resumeAudio();
     requestImmersiveMode();
-    playRoundStart();
     setScore(0);
     setTimeLeft(ROUND_DURATION);
     setJoystick({ x: 0, y: 0 });
@@ -342,6 +409,7 @@ function App() {
     setBestBeforeRound(bestScore);
     setCountdown(null);
     setStartingRound(true);
+    setRoundEnding(false);
     setPaused(false);
     setRoundId((value) => value + 1);
     setMode('playing');
@@ -376,7 +444,11 @@ function App() {
           <PrototypeScene
             dashNonce={dashNonce}
             isPlaying={
-              mode === 'playing' && !paused && countdown === null && !startingRound
+              mode === 'playing' &&
+              !paused &&
+              countdown === null &&
+              !startingRound &&
+              !roundEnding
             }
             jerseyColor={jerseyColor}
             jerseyAccentColor={jerseyAccentColor}
@@ -456,6 +528,7 @@ function App() {
             setPaused(false);
             setCountdown(null);
             setStartingRound(false);
+            setRoundEnding(false);
             setMode('menu');
           }}
           onVoiceChange={(next) => {

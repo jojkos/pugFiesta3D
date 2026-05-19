@@ -200,7 +200,10 @@ export function PugCharacter({
   }, [clonedScene]);
 
   useEffect(() => {
-    if (!root.current) {
+    // Capture the root at effect setup time so the cleanup uses the same node
+    // even if `root.current` has changed by the time React tears down.
+    const rootNode = root.current;
+    if (!rootNode) {
       return;
     }
 
@@ -220,7 +223,7 @@ export function PugCharacter({
           return;
         }
 
-        const animationAction = mixer.clipAction(clip, root.current ?? undefined);
+        const animationAction = mixer.clipAction(clip, rootNode);
         seen.set(clip.name, animationAction);
         map[action] = animationAction;
       },
@@ -242,8 +245,8 @@ export function PugCharacter({
       Object.values(map).forEach((action) => {
         const clip = action?.getClip();
         action?.stop();
-        if (clip && root.current) {
-          mixer.uncacheAction(clip, root.current);
+        if (clip) {
+          mixer.uncacheAction(clip, rootNode);
         }
       });
       actions.current = {};
