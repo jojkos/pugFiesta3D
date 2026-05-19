@@ -43,6 +43,7 @@ function App() {
     playMusicTrack,
     setMusicPlaybackRate,
     resumeAudio,
+    unlockAudio,
   } = useArcadeAudio(isMuted);
   const lastGoalShoutAtRef = useRef(0);
   const phraseNonceRef = useRef(0);
@@ -229,9 +230,10 @@ function App() {
   // Mode-driven music selection:
   // - Menu / game-over: menu loop
   // - Playing (incl. countdown / paused): ingame loop
-  // The audio context can only be resumed by a user gesture, so on mobile the
-  // menu track will stay silent until the user first taps anything (the Start
-  // button calls resumeAudio() inside the click handler).
+  // Browser autoplay policies require a user gesture before audio can start,
+  // so the very first source we create may be silent — the gesture listener
+  // below unlocks the context AND restarts the active source once the user
+  // first interacts anywhere on the page.
   useEffect(() => {
     if (roundEnding) {
       // Cut music during the post-whistle silence beat — the moment lands
@@ -243,6 +245,36 @@ function App() {
       playMusicTrack('menu');
     }
   }, [mode, roundEnding, playMusicTrack]);
+
+  // One-time audio unlock: on the FIRST user interaction anywhere on the page
+  // (pointer, touch, key), resume the suspended AudioContext and restart any
+  // music source that was scheduled while suspended. Without this the menu
+  // track stays silent until the user clicks Start — and on iOS Safari the
+  // queued source can blast unexpectedly when the context eventually resumes.
+  const audioUnlockedRef = useRef(false);
+  useEffect(() => {
+    if (audioUnlockedRef.current) {
+      return;
+    }
+    const tryUnlock = () => {
+      if (audioUnlockedRef.current) {
+        return;
+      }
+      audioUnlockedRef.current = true;
+      unlockAudio();
+      document.removeEventListener('pointerdown', tryUnlock);
+      document.removeEventListener('touchstart', tryUnlock);
+      document.removeEventListener('keydown', tryUnlock);
+    };
+    document.addEventListener('pointerdown', tryUnlock);
+    document.addEventListener('touchstart', tryUnlock, { passive: true });
+    document.addEventListener('keydown', tryUnlock);
+    return () => {
+      document.removeEventListener('pointerdown', tryUnlock);
+      document.removeEventListener('touchstart', tryUnlock);
+      document.removeEventListener('keydown', tryUnlock);
+    };
+  }, [unlockAudio]);
 
   useEffect(() => {
     if (!startingRound) {
