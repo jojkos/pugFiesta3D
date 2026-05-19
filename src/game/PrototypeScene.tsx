@@ -1,5 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Html } from '@react-three/drei';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { Group, Mesh } from 'three';
 import { MathUtils, Vector2, Vector3 } from 'three';
 import {
@@ -108,6 +109,7 @@ export function PrototypeScene({
   timeLeft,
   baseZoom,
   introZoomOut,
+  activePhrase,
 }: {
   isPlaying: boolean;
   moveInput: AnalogInput;
@@ -121,6 +123,11 @@ export function PrototypeScene({
   timeLeft: number;
   baseZoom: number;
   introZoomOut: boolean;
+  activePhrase: {
+    text: string;
+    kind: 'tag' | 'multi' | 'goal';
+    nonce: number;
+  } | null;
 }) {
   const { camera } = useThree();
   const player = useRef<Group>(null);
@@ -760,6 +767,14 @@ export function PrototypeScene({
               jerseyAccentColor,
             }}
           />
+          <Html
+            position={[0, 1.6, 0]}
+            center
+            zIndexRange={[10, 0]}
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
+            <SpeechBubble phrase={activePhrase} />
+          </Html>
         </group>
       </Suspense>
 
@@ -855,6 +870,60 @@ function spawnBurst(
   burst.age = 0;
   burst.offsetX = offsetX;
   burst.offsetZ = offsetZ;
+}
+
+function SpeechBubble({
+  phrase,
+}: {
+  readonly phrase: { text: string; kind: 'tag' | 'multi' | 'goal'; nonce: number } | null;
+}) {
+  const [visible, setVisible] = useState<
+    | { text: string; emphasis: boolean; key: number; exiting: boolean }
+    | null
+  >(null);
+
+  useEffect(() => {
+    if (!phrase) {
+      setVisible(null);
+      return;
+    }
+    const emphasis = phrase.kind !== 'tag';
+    setVisible({
+      text: phrase.text,
+      emphasis,
+      key: phrase.nonce,
+      exiting: false,
+    });
+    // Emphasised phrases hold a bit longer so the bounce reads.
+    const totalMs = emphasis ? 1100 : 800;
+    const exitAfterMs = totalMs - 220;
+    const exitTimer = globalThis.setTimeout(() => {
+      setVisible((v) => (v ? { ...v, exiting: true } : null));
+    }, exitAfterMs);
+    const clearTimer = globalThis.setTimeout(() => {
+      setVisible(null);
+    }, totalMs);
+    return () => {
+      globalThis.clearTimeout(exitTimer);
+      globalThis.clearTimeout(clearTimer);
+    };
+  }, [phrase?.nonce, phrase?.text, phrase?.kind, phrase]);
+
+  if (!visible) return null;
+
+  const cls = [
+    'speech-bubble',
+    visible.emphasis ? 'is-emphasis' : '',
+    visible.exiting ? 'is-exiting' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <div key={visible.key} className={cls}>
+      {visible.text}
+    </div>
+  );
 }
 
 function latchNpc(

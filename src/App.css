@@ -134,6 +134,89 @@ body {
   to { transform: scale(1); opacity: 1; }
 }
 
+/* ─────────── Speech bubble (floats above player on tag) ─────────── */
+
+.speech-bubble {
+  position: relative;
+  background: var(--paper);
+  border: 1.5px solid #ff7d8a;
+  border-radius: 14px;
+  padding: 6px 12px;
+  font-family: var(--display-font);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--ink);
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(111, 60, 39, 0.18);
+  transform-origin: center bottom;
+  animation: speech-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Speech-bubble tail: pink border triangle, then a paper-colored triangle
+   one pixel above it to create a clean two-tone pointer. */
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid #ff7d8a;
+}
+
+.speech-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--paper);
+  z-index: 1;
+}
+
+.speech-bubble.is-emphasis {
+  font-size: 20px;
+  padding: 8px 18px;
+  border-color: var(--warm-1);
+  color: var(--accent);
+  box-shadow: 0 6px 16px rgba(255, 90, 85, 0.28);
+  animation: speech-emphasis 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.speech-bubble.is-emphasis::after {
+  border-top-color: var(--warm-1);
+}
+
+.speech-bubble.is-exiting {
+  animation: speech-out 220ms ease-in forwards;
+}
+
+@keyframes speech-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.7); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes speech-emphasis {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.4); }
+  55%  { opacity: 1; transform: translateY(-4px) scale(1.18); }
+  75%  { transform: translateY(0) scale(0.94); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes speech-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.86) translateY(-4px); }
+}
+
 /* ─────────── Modal backdrop (blurs the live game scene) ─────────── */
 
 .modal-backdrop {
