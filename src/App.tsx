@@ -247,11 +247,23 @@ function App() {
   }, [mode, roundEnding, playMusicTrack]);
 
   // One-time audio unlock: on the FIRST user interaction anywhere on the page
-  // (pointer, touch, key), resume the suspended AudioContext and restart any
-  // music source that was scheduled while suspended. Without this the menu
-  // track stays silent until the user clicks Start — and on iOS Safari the
-  // queued source can blast unexpectedly when the context eventually resumes.
+  // (pointer, touch, key), resume the suspended AudioContext and explicitly
+  // kick off the current desired track. The initial `playMusicTrack('menu')`
+  // from the mode effect hangs at `await context.resume()` on a suspended
+  // context (browser autoplay policy), so `activeMusicRef` never even gets
+  // set — meaning we can't just "restart what's playing". We have to start
+  // it from scratch here once we're inside a real user gesture.
   const audioUnlockedRef = useRef(false);
+  // Hold the desired track in a ref so the listener closure always sees the
+  // latest value without needing to re-register on every mode change.
+  const desiredMusicTrackRef = useRef<'menu' | 'ingame' | null>('menu');
+  useEffect(() => {
+    desiredMusicTrackRef.current = roundEnding
+      ? null
+      : mode === 'playing'
+        ? 'ingame'
+        : 'menu';
+  }, [mode, roundEnding]);
   useEffect(() => {
     if (audioUnlockedRef.current) {
       return;
@@ -262,6 +274,10 @@ function App() {
       }
       audioUnlockedRef.current = true;
       unlockAudio();
+      const desired = desiredMusicTrackRef.current;
+      if (desired !== null) {
+        playMusicTrack(desired);
+      }
       document.removeEventListener('pointerdown', tryUnlock);
       document.removeEventListener('touchstart', tryUnlock);
       document.removeEventListener('keydown', tryUnlock);
@@ -274,7 +290,7 @@ function App() {
       document.removeEventListener('touchstart', tryUnlock);
       document.removeEventListener('keydown', tryUnlock);
     };
-  }, [unlockAudio]);
+  }, [unlockAudio, playMusicTrack]);
 
   useEffect(() => {
     if (!startingRound) {
