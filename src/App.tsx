@@ -246,13 +246,18 @@ function App() {
     }
   }, [mode, roundEnding, playMusicTrack]);
 
-  // One-time audio unlock: on the FIRST user interaction anywhere on the page
-  // (pointer, touch, key), resume the suspended AudioContext and explicitly
-  // kick off the current desired track. The initial `playMusicTrack('menu')`
-  // from the mode effect hangs at `await context.resume()` on a suspended
-  // context (browser autoplay policy), so `activeMusicRef` never even gets
-  // set — meaning we can't just "restart what's playing". We have to start
-  // it from scratch here once we're inside a real user gesture.
+  // One-time audio unlock: on the FIRST user interaction anywhere on the page,
+  // resume the suspended AudioContext and explicitly kick off the current
+  // desired track.
+  //
+  // CRITICAL: we only listen for events that the HTML spec defines as
+  // "activation triggering input events" — Chrome (incl. Android) silently
+  // rejects `AudioContext.resume()` if it's called from any other event.
+  // Notably `pointerdown` and `touchstart` are NOT activation events on touch
+  // devices (only mouse pointerdown is). The events that ARE activation:
+  //   click, mousedown, pointerup (non-mouse), touchend, keydown
+  // We listen for the broad set so whichever fires first on whatever input
+  // method works.
   const audioUnlockedRef = useRef(false);
   // Hold the desired track in a ref so the listener closure always sees the
   // latest value without needing to re-register on every mode change.
@@ -268,6 +273,13 @@ function App() {
     if (audioUnlockedRef.current) {
       return;
     }
+    const events: Array<keyof DocumentEventMap> = [
+      'click',
+      'pointerup',
+      'touchend',
+      'mousedown',
+      'keydown',
+    ];
     const tryUnlock = () => {
       if (audioUnlockedRef.current) {
         return;
@@ -278,17 +290,11 @@ function App() {
       if (desired !== null) {
         playMusicTrack(desired);
       }
-      document.removeEventListener('pointerdown', tryUnlock);
-      document.removeEventListener('touchstart', tryUnlock);
-      document.removeEventListener('keydown', tryUnlock);
+      events.forEach((event) => document.removeEventListener(event, tryUnlock));
     };
-    document.addEventListener('pointerdown', tryUnlock);
-    document.addEventListener('touchstart', tryUnlock, { passive: true });
-    document.addEventListener('keydown', tryUnlock);
+    events.forEach((event) => document.addEventListener(event, tryUnlock));
     return () => {
-      document.removeEventListener('pointerdown', tryUnlock);
-      document.removeEventListener('touchstart', tryUnlock);
-      document.removeEventListener('keydown', tryUnlock);
+      events.forEach((event) => document.removeEventListener(event, tryUnlock));
     };
   }, [unlockAudio, playMusicTrack]);
 
