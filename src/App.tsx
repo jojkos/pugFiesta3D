@@ -7,6 +7,7 @@ import {
   GOAL_SCORE_MULTIPLIER,
   GOAL_SHOUT_COOLDOWN,
   ROUND_DURATION,
+  ROUND_INTRO_DELAY,
 } from './game/config';
 import { clampInput } from './game/input';
 import { Overlay } from './game/Overlay';
@@ -101,6 +102,7 @@ function App() {
   const [roundId, setRoundId] = useState(0);
   const [dashNonce, setDashNonce] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [startingRound, setStartingRound] = useState(false);
   const [joystick, setJoystick] = useState<AnalogInput>({ x: 0, y: 0 });
   const [cameraZoom, setCameraZoom] = useState(() => computeCameraZoom());
 
@@ -174,11 +176,11 @@ function App() {
         setKeys((current) => ({ ...current, right: true }));
       }
       if (key === ' ' || key === 'enter') {
-        if (mode === 'playing' && !paused && countdown === null) {
+        if (mode === 'playing' && !paused && countdown === null && !startingRound) {
           setDashNonce((value) => value + 1);
         }
       }
-      if (key === 'escape' && mode === 'playing' && countdown === null) {
+      if (key === 'escape' && mode === 'playing' && countdown === null && !startingRound) {
         setPaused((value) => !value);
       }
     };
@@ -209,19 +211,34 @@ function App() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [countdown, mode, paused]);
+  }, [countdown, mode, paused, startingRound]);
 
   useEffect(() => {
     timeLeftRef.current = timeLeft;
   }, [timeLeft]);
 
   useEffect(() => {
-    setRoundLoopActive(mode === 'playing' && !paused && countdown === null);
+    setRoundLoopActive(
+      mode === 'playing' && !paused && countdown === null && !startingRound,
+    );
 
     return () => {
       setRoundLoopActive(false);
     };
-  }, [countdown, mode, paused, setRoundLoopActive]);
+  }, [countdown, mode, paused, setRoundLoopActive, startingRound]);
+
+  useEffect(() => {
+    if (!startingRound) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setStartingRound(false);
+      setCountdown(3);
+    }, ROUND_INTRO_DELAY * 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [startingRound]);
 
   useEffect(() => {
     if (countdown === null) {
@@ -254,7 +271,7 @@ function App() {
   }, [playCountdownTick]);
 
   useEffect(() => {
-    if (mode !== 'playing' || paused || countdown !== null) {
+    if (mode !== 'playing' || paused || countdown !== null || startingRound) {
       return;
     }
 
@@ -293,7 +310,7 @@ function App() {
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [countdown, mode, paused, roundId]);
+  }, [countdown, mode, paused, roundId, startingRound]);
 
   const keyboardX = Number(keys.right) - Number(keys.left);
   const keyboardY = Number(keys.up) - Number(keys.down);
@@ -316,7 +333,8 @@ function App() {
     setJoystick({ x: 0, y: 0 });
     setDashNonce(0);
     setBestBeforeRound(bestScore);
-    setCountdown(3);
+    setCountdown(null);
+    setStartingRound(true);
     setPaused(false);
     setRoundId((value) => value + 1);
     setMode('playing');
@@ -350,14 +368,16 @@ function App() {
           />
           <PrototypeScene
             dashNonce={dashNonce}
-            isPlaying={mode === 'playing' && !paused && countdown === null}
+            isPlaying={
+              mode === 'playing' && !paused && countdown === null && !startingRound
+            }
             jerseyColor={jerseyColor}
             jerseyAccentColor={jerseyAccentColor}
             moveInput={worldMoveInput}
             score={score}
             timeLeft={timeLeft}
             baseZoom={cameraZoom}
-            introZoomOut={mode === 'playing' && countdown !== null}
+            introZoomOut={mode === 'playing' && (countdown !== null || startingRound)}
             onDashStart={playDash}
             onTag={(chainSize, inGoal) => {
               const points = inGoal ? GOAL_SCORE_MULTIPLIER : 1;
@@ -416,6 +436,7 @@ function App() {
           onQuitToMenu={() => {
             setPaused(false);
             setCountdown(null);
+            setStartingRound(false);
             setMode('menu');
           }}
           onVoiceChange={(next) => {
@@ -460,7 +481,7 @@ function App() {
 
         <TouchControls
           dashLabel={strings.controls.dash}
-          disabled={mode !== 'playing' || paused || countdown !== null}
+          disabled={mode !== 'playing' || paused || countdown !== null || startingRound}
           onDash={() => {
             if (!paused) {
               setDashNonce((value) => value + 1);

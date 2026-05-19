@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import type { NpcVariant } from './types';
 
 export const ROUND_DURATION = 45;
+export const ROUND_INTRO_DELAY = 0.5;
 export const FIELD_HALF_X = 9.5;
 export const FIELD_HALF_Z = 5;
 export const GOAL_AREA_RADIUS = 3.4;
