@@ -511,6 +511,27 @@ export function useArcadeAudio(muted: boolean) {
     [ensureBus, loadAudioBuffer, stopActiveMusic],
   );
 
+  // Unlock the audio context AND restart any music that was started against
+  // a suspended context. Browsers (especially iOS Safari) won't play audio
+  // until a user gesture; the source nodes we created beforehand get stuck in
+  // a "scheduled" state and may either stay silent or blast suddenly when
+  // resume() finally fires. Calling this from any first user gesture handles
+  // both cases.
+  const unlockAudio = useCallback(() => {
+    const bus = createBus();
+    if (!bus) return;
+    if (bus.context.state === 'suspended') {
+      // Synchronous resume() so iOS counts this as gesture-activated.
+      void bus.context.resume();
+    }
+    const active = activeMusicRef.current;
+    if (active) {
+      const trackToReplay = active.track;
+      stopActiveMusic(0);
+      void playMusicTrack(trackToReplay);
+    }
+  }, [createBus, playMusicTrack, stopActiveMusic]);
+
   const setMusicPlaybackRate = useCallback((rate: number) => {
     const active = activeMusicRef.current;
     if (!active) return;
@@ -575,6 +596,7 @@ export function useArcadeAudio(muted: boolean) {
       },
       setMusicPlaybackRate,
       resumeAudio,
+      unlockAudio,
     }),
     [
       guard,
@@ -586,6 +608,7 @@ export function useArcadeAudio(muted: boolean) {
       playMusicTrack,
       setMusicPlaybackRate,
       resumeAudio,
+      unlockAudio,
     ],
   );
 }
