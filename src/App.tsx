@@ -19,6 +19,7 @@ import {
   getVoicesForLang,
   isVoiceInLang,
   playVoiceSample,
+  preloadVoicePhrases,
   useFunnySpeech,
 } from './game/useFunnySpeech';
 import {
@@ -44,6 +45,7 @@ function App() {
     setMusicPlaybackRate,
     resumeAudio,
     unlockAudio,
+    preloadAudio,
   } = useArcadeAudio(isMuted);
   const lastGoalShoutAtRef = useRef(0);
   const phraseNonceRef = useRef(0);
@@ -78,6 +80,15 @@ function App() {
     return fallback;
   });
   const speakPhrase = useFunnySpeech(isMuted, voiceId, lang);
+
+  // Warm the phrase cache for the active voice/lang in the background.
+  // Runs on initial menu mount and whenever the user picks a different
+  // voice or language — by the time they hit Play the clips are ready.
+  // No AudioContext needed: phrases play through HTMLAudioElement.
+  useEffect(() => {
+    void preloadVoicePhrases(voiceId, lang);
+  }, [voiceId, lang]);
+
   const [mode, setMode] = useState<GameMode>('menu');
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(() => {
@@ -454,6 +465,10 @@ function App() {
     // Safari treats it as a user-gesture activation. Awaiting elsewhere loses
     // the gesture and the first round goes silent.
     resumeAudio();
+    // Fetch + decode the whistle and ingame music now that the AudioContext
+    // is unlocked. Both ROUND_INTRO_DELAY (1s) and the countdown buy enough
+    // time for the buffers to be ready before they're needed.
+    preloadAudio();
     requestImmersiveMode();
     setScore(0);
     setTimeLeft(ROUND_DURATION);

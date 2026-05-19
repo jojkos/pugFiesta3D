@@ -280,6 +280,28 @@ export function playVoiceSample(
   void playPhrase(voiceId, phrase, muted, lang);
 }
 
+// Warm the in-memory phrase cache for the active voice/lang so the first
+// utterance after Play doesn't pay the fetch+decode cost. Safe to call
+// repeatedly: fetchPhrase dedupes via memoryCache + inflight maps.
+export async function preloadVoicePhrases(
+  voiceId: string,
+  lang: Lang,
+): Promise<void> {
+  const prefix = `${voiceId}:${lang}:`;
+  const phrases = Object.keys(VOICE_CACHE_MANIFEST)
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => key.slice(prefix.length));
+
+  // Cap concurrent fetches so we don't hammer the connection on flaky mobile.
+  const CONCURRENCY = 4;
+  for (let i = 0; i < phrases.length; i += CONCURRENCY) {
+    const batch = phrases
+      .slice(i, i + CONCURRENCY)
+      .map((text) => fetchPhrase(voiceId, text, lang).catch(() => null));
+    await Promise.all(batch);
+  }
+}
+
 export function useFunnySpeech(muted: boolean, voiceId: string, lang: Lang) {
   return useCallback(
     (text: string) => {
