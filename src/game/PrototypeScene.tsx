@@ -895,7 +895,7 @@ function SpeechBubble({
       exiting: false,
     });
     // Emphasised phrases hold a bit longer so the bounce reads.
-    const totalMs = emphasis ? 1100 : 800;
+    const totalMs = emphasis ? 1600 : 1200;
     const exitAfterMs = totalMs - 220;
     const exitTimer = globalThis.setTimeout(() => {
       setVisible((v) => (v ? { ...v, exiting: true } : null));
