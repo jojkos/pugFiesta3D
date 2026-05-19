@@ -578,6 +578,14 @@ export function useArcadeAudio(muted: boolean) {
     }
   }, []);
 
+  // Fetch + decode the round-critical buffers ahead of time so the whistle
+  // fires sample-accurately on the "1" fade and the ingame music doesn't
+  // stutter on round start. Idempotent — loadAudioBuffer caches by URL.
+  const preloadAudio = useCallback(() => {
+    void loadAudioBuffer(SFX_URLS.whistle);
+    void loadAudioBuffer(MUSIC_TRACK_URLS.ingame);
+  }, [loadAudioBuffer]);
+
   return useMemo(
     () => ({
       playDash: () => guard(playDash),
@@ -593,6 +601,7 @@ export function useArcadeAudio(muted: boolean) {
       setMusicPlaybackRate,
       resumeAudio,
       unlockAudio,
+      preloadAudio,
     }),
     [
       guard,
@@ -605,6 +614,7 @@ export function useArcadeAudio(muted: boolean) {
       setMusicPlaybackRate,
       resumeAudio,
       unlockAudio,
+      preloadAudio,
     ],
   );
 }
