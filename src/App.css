@@ -238,6 +238,12 @@ body {
   overscroll-behavior: contain;
 }
 
+/* Game-over screen follows a 1.5s pause after the whistle — give the backdrop
+   a longer, more deliberate fade so it feels like a transition, not a pop. */
+.modal-backdrop.is-gameover {
+  animation: fadeIn 700ms ease-out;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

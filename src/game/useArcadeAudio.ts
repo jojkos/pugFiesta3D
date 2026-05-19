@@ -19,12 +19,29 @@ type AudioBus = {
   reverb: ConvolverNode;
 };
 
-const MUSIC_PROGRESSION: number[][] = [
-  [196, 246.94, 293.66, 246.94],
-  [220, 277.18, 329.63, 277.18],
-  [174.61, 220, 261.63, 220],
-  [196, 261.63, 329.63, 246.94],
-];
+type MusicTrack = 'menu' | 'ingame';
+
+const MUSIC_TRACK_URLS: Record<MusicTrack, string> = {
+  menu: '/assets/audio/menu.mp3',
+  ingame: '/assets/audio/ingame.mp3',
+};
+
+// Per-track loop volume. Background music sits well behind FX and voice — keep
+// these low. Tune by ear.
+const MUSIC_TRACK_GAIN: Record<MusicTrack, number> = {
+  menu: 0.18,
+  ingame: 0.16,
+};
+
+const MUSIC_FADE_DURATION = 0.6;
+
+const SFX_URLS = {
+  whistle: '/assets/audio/whistle.mp3',
+} as const;
+
+const SFX_GAIN: Record<keyof typeof SFX_URLS, number> = {
+  whistle: 0.45,
+};
 
 function buildReverbImpulse(context: AudioContext, duration = 1.4) {
   const sampleRate = context.sampleRate;
@@ -41,10 +58,18 @@ function buildReverbImpulse(context: AudioContext, duration = 1.4) {
 
 export function useArcadeAudio(muted: boolean) {
   const busRef = useRef<AudioBus | null>(null);
-  const musicTimerRef = useRef<number | null>(null);
   const scheduledTimeoutsRef = useRef<Set<number>>(new Set());
-  const barRef = useRef(0);
   const mutedRef = useRef(muted);
+  // Single buffer cache keyed by URL — covers both music loops and SFX one-shots.
+  const audioBufferCache = useRef<Map<string, AudioBuffer>>(new Map());
+  const audioBufferLoading = useRef<Map<string, Promise<AudioBuffer | null>>>(
+    new Map(),
+  );
+  const activeMusicRef = useRef<{
+    track: MusicTrack;
+    source: AudioBufferSourceNode;
+    gain: GainNode;
+  } | null>(null);
 
   useEffect(() => {
     mutedRef.current = muted;
@@ -365,59 +390,6 @@ export function useArcadeAudio(muted: boolean) {
     }, 180);
   }, [playNoise, playTone, trackTimeout]);
 
-  const playRoundStart = useCallback(() => {
-    void playTone({
-      frequency: 392,
-      endFrequency: 523.25,
-      duration: 0.18,
-      gain: 0.05,
-      type: 'triangle',
-    });
-    trackTimeout(() => {
-      void playTone({
-        frequency: 587.33,
-        endFrequency: 783.99,
-        duration: 0.22,
-        gain: 0.05,
-        type: 'sine',
-      });
-    }, 110);
-    trackTimeout(() => {
-      void playTone(
-        {
-          frequency: 783.99,
-          duration: 0.32,
-          gain: 0.04,
-          type: 'triangle',
-          attack: 0.02,
-        },
-        'fx',
-        0.45,
-      );
-    }, 240);
-  }, [playTone, trackTimeout]);
-
-  const playRoundEnd = useCallback(() => {
-    void playTone({
-      frequency: 523.25,
-      endFrequency: 261.63,
-      duration: 0.6,
-      gain: 0.05,
-      type: 'sine',
-      attack: 0.02,
-    });
-    trackTimeout(() => {
-      void playTone({
-        frequency: 392,
-        endFrequency: 196,
-        duration: 0.7,
-        gain: 0.04,
-        type: 'triangle',
-        attack: 0.03,
-      });
-    }, 90);
-  }, [playTone, trackTimeout]);
-
   const playCountdownTick = useCallback(() => {
     void playTone({
       frequency: 880,
@@ -429,67 +401,140 @@ export function useArcadeAudio(muted: boolean) {
     });
   }, [playTone]);
 
-  const stopMusic = useCallback(() => {
-    if (musicTimerRef.current !== null) {
-      globalThis.clearInterval(musicTimerRef.current);
-      musicTimerRef.current = null;
+  const loadAudioBuffer = useCallback(
+    async (url: string): Promise<AudioBuffer | null> => {
+      const cached = audioBufferCache.current.get(url);
+      if (cached) return cached;
+      const pending = audioBufferLoading.current.get(url);
+      if (pending) return pending;
+
+      const bus = await ensureBus();
+      if (!bus) return null;
+
+      const promise = (async () => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) return null;
+          const arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await bus.context.decodeAudioData(arrayBuffer);
+          audioBufferCache.current.set(url, audioBuffer);
+          return audioBuffer;
+        } catch {
+          return null;
+        } finally {
+          audioBufferLoading.current.delete(url);
+        }
+      })();
+
+      audioBufferLoading.current.set(url, promise);
+      return promise;
+    },
+    [ensureBus],
+  );
+
+  const stopActiveMusic = useCallback((fade = MUSIC_FADE_DURATION) => {
+    const active = activeMusicRef.current;
+    if (!active) return;
+    activeMusicRef.current = null;
+    const ctx = active.gain.context;
+    const now = ctx.currentTime;
+    try {
+      active.gain.gain.cancelScheduledValues(now);
+      active.gain.gain.setValueAtTime(active.gain.gain.value, now);
+      active.gain.gain.linearRampToValueAtTime(0, now + fade);
+      active.source.stop(now + fade + 0.02);
+    } catch {
+      try {
+        active.source.stop();
+      } catch {
+        // Already stopped.
+      }
     }
-    // Cancel any in-flight per-tone setTimeouts so the last 1–2 notes don't
-    // leak after a pause / round end.
-    scheduledTimeoutsRef.current.forEach((id) => globalThis.clearTimeout(id));
-    scheduledTimeoutsRef.current.clear();
-    barRef.current = 0;
   }, []);
 
-  const setRoundLoopActive = useCallback(
-    (active: boolean) => {
-      stopMusic();
+  const playSample = useCallback(
+    async (url: string, gain = 0.5) => {
+      const bus = await ensureBus();
+      if (!bus) return;
+      const buffer = await loadAudioBuffer(url);
+      if (!buffer) return;
+      const source = bus.context.createBufferSource();
+      source.buffer = buffer;
+      const gainNode = bus.context.createGain();
+      gainNode.gain.value = gain;
+      source.connect(gainNode);
+      gainNode.connect(bus.fxBus);
+      source.start(bus.context.currentTime);
+    },
+    [ensureBus, loadAudioBuffer],
+  );
 
-      if (!active || globalThis.window === undefined) {
+  const playWhistle = useCallback(() => {
+    void playSample(SFX_URLS.whistle, SFX_GAIN.whistle);
+  }, [playSample]);
+
+  const playMusicTrack = useCallback(
+    async (track: MusicTrack | null) => {
+      if (track === null) {
+        stopActiveMusic();
+        return;
+      }
+      if (activeMusicRef.current?.track === track) {
         return;
       }
 
-      const playBar = () => {
-        const progression =
-          MUSIC_PROGRESSION[barRef.current % MUSIC_PROGRESSION.length];
-        progression.forEach((frequency, step) => {
-          trackTimeout(() => {
-            void playTone(
-              {
-                frequency,
-                duration: 0.34,
-                gain: step === 0 ? 0.07 : 0.045,
-                type: step % 2 === 0 ? 'triangle' : 'sine',
-                attack: 0.04,
-                detune: step === 3 ? -8 : 4,
-              },
-              'music',
-              0.4,
-            );
+      const bus = await ensureBus();
+      if (!bus) return;
+      const buffer = await loadAudioBuffer(MUSIC_TRACK_URLS[track]);
+      // Bail if mute flipped while we were decoding, or another track took over.
+      if (!buffer) return;
+      if (activeMusicRef.current?.track === track) return;
 
-            if (step % 2 === 0) {
-              void playTone(
-                {
-                  frequency: frequency / 2,
-                  duration: 0.4,
-                  gain: 0.04,
-                  type: 'sine',
-                  attack: 0.05,
-                },
-                'music',
-                0,
-              );
-            }
-          }, step * 200);
-        });
-        barRef.current += 1;
-      };
+      stopActiveMusic();
 
-      playBar();
-      musicTimerRef.current = globalThis.setInterval(playBar, 880);
+      const source = bus.context.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+
+      const trackGain = bus.context.createGain();
+      const targetGain = MUSIC_TRACK_GAIN[track];
+      const now = bus.context.currentTime;
+      trackGain.gain.setValueAtTime(0, now);
+      trackGain.gain.linearRampToValueAtTime(targetGain, now + MUSIC_FADE_DURATION);
+
+      source.connect(trackGain);
+      trackGain.connect(bus.musicBus);
+      source.start(now);
+
+      activeMusicRef.current = { track, source, gain: trackGain };
     },
-    [playTone, stopMusic, trackTimeout],
+    [ensureBus, loadAudioBuffer, stopActiveMusic],
   );
+
+  const setMusicPlaybackRate = useCallback((rate: number) => {
+    const active = activeMusicRef.current;
+    if (!active) return;
+    const param = active.source.playbackRate;
+    const ctx = active.source.context;
+    const now = ctx.currentTime;
+    try {
+      param.cancelScheduledValues(now);
+      // Short exponential glide so per-frame rate calls don't click.
+      param.setTargetAtTime(rate, now, 0.08);
+    } catch {
+      try {
+        param.value = rate;
+      } catch {
+        // Ignore — node may have been stopped.
+      }
+    }
+  }, []);
+
+  const stopMusic = useCallback(() => {
+    stopActiveMusic();
+    scheduledTimeoutsRef.current.forEach((id) => globalThis.clearTimeout(id));
+    scheduledTimeoutsRef.current.clear();
+  }, [stopActiveMusic]);
 
   // Stop music + close the AudioContext on unmount so we don't leak across
   // HMR reloads (Chrome throttles after ~6 live contexts).
@@ -521,10 +566,14 @@ export function useArcadeAudio(muted: boolean) {
       playDash: () => guard(playDash),
       playTag: () => guard(playTag),
       playCheer: () => guard(playCheer),
-      playRoundStart: () => guard(playRoundStart),
-      playRoundEnd: () => guard(playRoundEnd),
+      playWhistle: () => guard(playWhistle),
       playCountdownTick: () => guard(playCountdownTick),
-      setRoundLoopActive,
+      playMusicTrack: (track: MusicTrack | null) => {
+        // Master gain handles mute, so let music start anyway — it'll be
+        // inaudible while muted but switch tracks correctly when unmuted.
+        void playMusicTrack(track);
+      },
+      setMusicPlaybackRate,
       resumeAudio,
     }),
     [
@@ -532,10 +581,10 @@ export function useArcadeAudio(muted: boolean) {
       playDash,
       playTag,
       playCheer,
-      playRoundStart,
-      playRoundEnd,
+      playWhistle,
       playCountdownTick,
-      setRoundLoopActive,
+      playMusicTrack,
+      setMusicPlaybackRate,
       resumeAudio,
     ],
   );

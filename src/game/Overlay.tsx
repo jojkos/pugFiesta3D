@@ -892,7 +892,7 @@ export function Overlay({
       )}
 
       {mode === 'gameOver' && (
-        <div className="modal-backdrop">
+        <div className="modal-backdrop is-gameover">
           <section className="res">
             <div className="res-head">
               <p className="res-eye">{strings.results.eyebrow}</p>
