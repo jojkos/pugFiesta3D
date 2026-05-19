@@ -45,6 +45,12 @@ function App() {
     resumeAudio,
   } = useArcadeAudio(isMuted);
   const lastGoalShoutAtRef = useRef(0);
+  const phraseNonceRef = useRef(0);
+  const [activePhrase, setActivePhrase] = useState<{
+    text: string;
+    kind: 'tag' | 'multi' | 'goal';
+    nonce: number;
+  } | null>(null);
   const [lang, setLang] = useState<Lang>(() => {
     if (globalThis.window === undefined) return DEFAULT_LANG;
     const stored = globalThis.sessionStorage.getItem('pug-banger-fiesta-lang');
@@ -332,6 +338,7 @@ function App() {
     setTimeLeft(ROUND_DURATION);
     setJoystick({ x: 0, y: 0 });
     setDashNonce(0);
+    setActivePhrase(null);
     setBestBeforeRound(bestScore);
     setCountdown(null);
     setStartingRound(true);
@@ -378,22 +385,34 @@ function App() {
             timeLeft={timeLeft}
             baseZoom={cameraZoom}
             introZoomOut={mode === 'playing' && (countdown !== null || startingRound)}
+            activePhrase={activePhrase}
             onDashStart={playDash}
             onTag={(chainSize, inGoal) => {
               const points = inGoal ? GOAL_SCORE_MULTIPLIER : 1;
+              let phraseText: string;
+              let phraseKind: 'tag' | 'multi' | 'goal';
               if (inGoal) {
-                const now = performance.now() / 1000;
+                phraseText = strings.goalShout;
+                phraseKind = 'goal';
                 playCheer();
+                const now = performance.now() / 1000;
                 if (now - lastGoalShoutAtRef.current >= GOAL_SHOUT_COOLDOWN) {
                   speakPhrase(strings.goalShout);
                   lastGoalShoutAtRef.current = now;
                 }
               } else {
                 const multiPhrase = strings.multiTagPhrases[chainSize];
-                const phrase = multiPhrase ?? pickRandomTagPhrase(lang);
+                phraseText = multiPhrase ?? pickRandomTagPhrase(lang);
+                phraseKind = multiPhrase ? 'multi' : 'tag';
                 playTag();
-                speakPhrase(phrase);
+                speakPhrase(phraseText);
               }
+              phraseNonceRef.current += 1;
+              setActivePhrase({
+                text: phraseText,
+                kind: phraseKind,
+                nonce: phraseNonceRef.current,
+              });
               setScore((value) => {
                 const nextScore = value + points;
                 if (nextScore > bestScore) {
