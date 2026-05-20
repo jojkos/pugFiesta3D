@@ -1149,7 +1149,10 @@ body {
 
 .lb {
   container-type: inline-size;
-  width: min(520px, 100%);
+  /* Landscape mobile + desktop both want a wider modal so the podium and the
+     rest-of-list can sit side by side. Falls back to vertical stack on very
+     narrow widths via the container-query below. */
+  width: min(760px, 100%);
   max-height: calc(100dvh - 28px);
   min-height: 0;
   overflow: hidden;
@@ -1357,8 +1360,20 @@ body {
 }
 
 .lb-row.you {
-  background: rgba(255, 125, 142, 0.2);
-  box-shadow: inset 2px 0 0 var(--warm-1);
+  background: linear-gradient(90deg, var(--accent-deep), #6e1f3a);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(110, 31, 58, 0.32);
+}
+
+.lb-row.you .lb-rank,
+.lb-row.you .lb-name,
+.lb-row.you .lb-score,
+.lb-row.you .lb-date {
+  color: #fff;
+}
+
+.lb-row.you .lb-name-you-tag {
+  color: #ffd2dc;
 }
 
 .lb-rank {
@@ -1448,21 +1463,30 @@ body {
   color: #6b4a3a;
 }
 
-@container (min-width: 640px) {
-  .lb {
-    max-width: 720px;
-  }
+/* Side-by-side layout: podium left, rest-of-list right. Triggers at ~460px
+   so landscape mobile gets it; below this we fall back to the vertical stack
+   defined above. */
+@container (min-width: 460px) {
   .lb-body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
-    gap: 20px;
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: 16px;
+    align-items: stretch;
   }
   .lb-podium {
     align-self: start;
   }
   .lb-list {
-    max-height: 320px;
+    /* Fill the grid row's full height instead of capping at 320px — gives the
+       rest-of-list real vertical space on landscape phones. */
+    max-height: none;
+    min-height: 0;
+  }
+  /* The dates eat row width without helping gameplay. Hide them in the
+     side-by-side layout so names + scores breathe. */
+  .lb-date,
+  .lb-pod-date {
+    display: none;
   }
 }
 
@@ -1472,7 +1496,9 @@ body {
 
 .res {
   container-type: inline-size;
-  width: min(720px, 100%);
+  /* Landscape phones + desktop both want a wider modal so the leaderboard
+     sidebar fits. Stacks vertically below the breakpoint at the bottom. */
+  width: min(820px, 100%);
   max-height: calc(100dvh - 28px);
   min-height: 0;
   background: var(--paper);
@@ -1644,8 +1670,16 @@ body {
 }
 
 .res-mini.you {
-  background: rgba(255, 125, 142, 0.22);
-  box-shadow: inset 2px 0 0 var(--warm-1);
+  background: linear-gradient(90deg, var(--accent-deep), #6e1f3a);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(110, 31, 58, 0.28);
+}
+
+.res-mini.you .res-mini-rank,
+.res-mini.you .res-mini-name,
+.res-mini.you .res-mini-score,
+.res-mini.you .res-mini-date {
+  color: #fff;
 }
 
 .res-mini-rank {
@@ -1772,11 +1806,14 @@ body {
   background: rgba(36, 16, 11, 0.06);
 }
 
-@container (min-width: 620px) {
+/* Side-by-side end-screen layout: score+stats+submit on the left, mini
+   leaderboard fills the right column for the modal's full height. Lowered
+   from 620px so landscape mobile gets it (matches the .lb modal pattern). */
+@container (min-width: 460px) {
   .res {
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-    gap: 12px 22px;
+    gap: 12px 20px;
   }
   .res-head {
     grid-column: 1 / 2;
@@ -1792,14 +1829,16 @@ body {
     grid-column: 2 / 3;
     grid-row: 1 / 5;
   }
-  .res-submit {
-    grid-column: 1 / 2;
-  }
+  .res-submit,
   .res-submit-done {
     grid-column: 1 / 2;
   }
   .res-actions {
     grid-column: 1 / -1;
+  }
+  /* Date eats row width in the narrow side panel; hide it side-by-side. */
+  .res-mini-date {
+    display: none;
   }
 }
 

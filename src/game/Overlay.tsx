@@ -227,8 +227,6 @@ function ChipPopover({
 }
 
 export function Overlay({
-  bestScore,
-  bestBeforeRound,
   countdown,
   mode,
   paused,
@@ -254,8 +252,6 @@ export function Overlay({
   highlightedEntryId,
   onSubmitScore,
 }: Readonly<{
-  bestScore: number;
-  bestBeforeRound: number;
   countdown: number | null;
   mode: GameMode;
   paused: boolean;
@@ -378,11 +374,15 @@ export function Overlay({
     voiceCharacters[0]?.label ??
     '';
 
-  const isNewBest = mode === 'gameOver' && score > 0 && score > bestBeforeRound;
+  // Only celebrate when the player has actually beaten the top score on the
+  // leaderboard (or set the first one when the board is empty).
+  const leaderboardTop = leaderboardEntries[0]?.score ?? 0;
+  const isNewBest =
+    mode === 'gameOver' && score > 0 && score > leaderboardTop;
 
   return (
     <>
-      {(mode === 'menu' || mode === 'gameOver') && (
+      {mode === 'menu' && (
         <a
           className="bmc-link"
           href="https://buymeacoffee.com/jojkos"
@@ -712,11 +712,9 @@ export function Overlay({
               <span className="menu-foot-controls menu-foot-controls-mobile">
                 {strings.menu.controlsMobileHint}
               </span>
-              <span>
-                {strings.menu.bestSoFar(
-                  Math.max(leaderboardEntries[0]?.score ?? 0, bestScore),
-                )}
-              </span>
+              {leaderboardTop > 0 && (
+                <span>{strings.menu.bestSoFar(leaderboardTop)}</span>
+              )}
             </div>
           </section>
 
@@ -910,7 +908,7 @@ export function Overlay({
             <div className="res-stats">
               <div className="res-stat">
                 <span>{strings.results.best}</span>
-                <strong>{Math.max(score, bestScore)}</strong>
+                <strong>{Math.max(score, leaderboardTop)}</strong>
               </div>
               <div className="res-stat">
                 <span>{strings.results.pace}</span>

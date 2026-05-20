@@ -91,14 +91,6 @@ function App() {
 
   const [mode, setMode] = useState<GameMode>('menu');
   const [score, setScore] = useState(0);
-  const [bestScore, setBestScore] = useState(() => {
-    if (typeof window === 'undefined') {
-      return 0;
-    }
-
-    return Number(window.sessionStorage.getItem('pug-banger-fiesta-best-score') ?? 0) || 0;
-  });
-  const [bestBeforeRound, setBestBeforeRound] = useState(bestScore);
   // Default team: Psí děvky (white primary, blue accent).
   const [jerseyColor, setJerseyColor] = useState(() => {
     if (typeof window === 'undefined') {
@@ -475,7 +467,6 @@ function App() {
     setJoystick({ x: 0, y: 0 });
     setDashNonce(0);
     setActivePhrase(null);
-    setBestBeforeRound(bestScore);
     setCountdown(null);
     setStartingRound(true);
     setRoundEnding(false);
@@ -554,25 +545,13 @@ function App() {
                 kind: phraseKind,
                 nonce: phraseNonceRef.current,
               });
-              setScore((value) => {
-                const nextScore = value + points;
-                if (nextScore > bestScore) {
-                  setBestScore(nextScore);
-                  window.sessionStorage.setItem(
-                    'pug-banger-fiesta-best-score',
-                    String(nextScore),
-                  );
-                }
-                return nextScore;
-              });
+              setScore((value) => value + points);
             }}
             roundId={roundId}
           />
         </Canvas>
 
         <Overlay
-          bestScore={bestScore}
-          bestBeforeRound={bestBeforeRound}
           countdown={countdown}
           isMuted={isMuted}
           jerseyColor={jerseyColor}
