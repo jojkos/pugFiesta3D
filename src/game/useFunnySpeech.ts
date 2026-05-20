@@ -47,7 +47,9 @@ const ELEVENLABS_ENDPOINT = 'https://api.elevenlabs.io/v1/text-to-speech';
 const MODEL_ID = 'eleven_multilingual_v2';
 const CACHE_NAME = 'pug-banger-fiesta-voice-v2';
 
-const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined;
+// Optional chaining so this module is safe to import from Node scripts (e.g.
+// scripts/generate-voice-cache.ts) where `import.meta.env` doesn't exist.
+const apiKey = import.meta.env?.VITE_ELEVENLABS_API_KEY as string | undefined;
 
 const MEMORY_CACHE_MAX = 64;
 const memoryCache = new Map<string, ArrayBuffer>();

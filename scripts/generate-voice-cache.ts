@@ -1,18 +1,24 @@
-// Pre-generates ElevenLabs mp3s for all (voice × Czech-phrase) combinations and
-// writes a manifest the runtime can consult before hitting the API.
+// Pre-generates ElevenLabs mp3s for every (voice × language × phrase) combo
+// in src/game/i18n.ts and writes a manifest the runtime can consult before
+// hitting the API.
 //
-// Usage: node scripts/generate-voice-cache.mjs
+// Usage: npm run voice-cache
 //
 // Reads VITE_ELEVENLABS_API_KEY from .env. Existing files are skipped (re-runs
-// only generate missing combos), so it's safe to interrupt + resume.
+// only generate missing combos), so it's safe to interrupt + resume. The
+// voice list and phrase list are imported directly from the runtime modules,
+// so they can't drift.
 //
-// To force-regenerate a specific phrase, delete its .mp3 from
+// To force-regenerate a specific phrase: delete its .mp3 from
 // public/assets/voice/<voiceId>/<hash>.mp3 and re-run.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { STRINGS, type Lang } from '../src/game/i18n.ts';
+import { VOICE_CHARACTERS } from '../src/game/useFunnySpeech.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -24,7 +30,10 @@ const env = Object.fromEntries(
     .filter((l) => l.trim() && !l.startsWith('#'))
     .map((l) => {
       const idx = l.indexOf('=');
-      return [l.slice(0, idx).trim(), l.slice(idx + 1).trim().replace(/^["']|["']$/g, '')];
+      return [
+        l.slice(0, idx).trim(),
+        l.slice(idx + 1).trim().replace(/^["']|["']$/g, ''),
+      ];
     }),
 );
 
@@ -36,65 +45,39 @@ if (!API_KEY) {
 
 const MODEL_ID = 'eleven_multilingual_v2';
 
-// Keep in sync with VOICE_CHARACTERS in src/game/useFunnySpeech.ts.
-// (cs + en use the same underlying ElevenLabs voice IDs.)
-const VOICES = [
-  { id: 'JBFqnCBsd6RMkjVDRZzb', label: 'Trhač / Posh Pug' },
-  { id: 'pFZP5JQG7iQjIQuC4Bku', label: 'Čubka / Sassy Pug' },
-  { id: 'nPczCjzI2devNBz1zQrb', label: 'Retrívr / Trailer Pug' },
-  { id: 'pqHfZKP75CvOlQylNhV4', label: 'Doga / Drill Sgt' },
-];
+// Distinct voice IDs across all languages. The same voice ID is reused across
+// cs + en under different labels — dedupe so we don't generate twice.
+const VOICES = Object.values(VOICE_CHARACTERS)
+  .flat()
+  .reduce<{ id: string; label: string }[]>((acc, v) => {
+    if (acc.some((existing) => existing.id === v.voiceId)) return acc;
+    acc.push({ id: v.voiceId, label: v.label });
+    return acc;
+  }, []);
 
-// Keep each list in sync with the matching strings in src/game/i18n.ts:
-//   - multiTagPhrases[2], multiTagPhrases[3]
-//   - goalShout
-//   - all tagPhrases entries
-const PHRASES_BY_LANG = {
-  cs: [
-    'Trojka!',
-    'Grupáč!',
-    'Skóruje!',
-    'štěká, ale nekouše',
-    'utrhnem se ze řetězu',
-    'má naštěkáno do boudy!',
-    'silnější pes mrdá',
-    'beng beng beng, jak rej koranteng',
-    'vrtí ocasem, ta to chce',
-    'to je psina',
-    'viděl jsem, štěknul jsem, prcnul jsem',
-    'hlídej si ocas, jdu na věc',
-    'mrskej se ty čubičko!',
-    'štěknem si',
-    'epes rádes',
-  ],
-  en: [
-    'Threesome!',
-    'Gangbang!',
-    'Score!',
-    'Sit, stay... slay',
-    'Hot dog incoming!',
-    'Boss bitch',
-    'Sniffed it, liked it, marked it',
-    'Wiggle wiggle wiggle',
-    'Scooby dooby doo',
-    'Go pug yourself',
-    'Who let the dogs out',
-    'doggy style',
-    'Certified stud magnet',
-    'Not in heat, just hot as hell',
-    'hump first, ask names later',
-    'No leash, no shame, all stamina',
-  ],
+function phrasesForLang(lang: Lang): string[] {
+  const s = STRINGS[lang];
+  // Multi-tag phrase values + the goal shout + every random tag phrase. This
+  // is the complete set of strings the runtime ever passes to speakPhrase().
+  const multi = Object.values(s.multiTagPhrases).filter(
+    (v): v is string => typeof v === 'string',
+  );
+  return [...multi, s.goalShout, ...s.tagPhrases];
+}
+
+const PHRASES_BY_LANG: Record<Lang, string[]> = {
+  cs: phrasesForLang('cs'),
+  en: phrasesForLang('en'),
 };
 
-function hashKey(voiceId, lang, text) {
+function hashKey(voiceId: string, lang: string, text: string) {
   return createHash('sha256')
     .update(`${voiceId}:${lang}:${text}`)
     .digest('hex')
     .slice(0, 16);
 }
 
-async function generateOne(voiceId, lang, text) {
+async function generateOne(voiceId: string, lang: Lang, text: string) {
   const hash = hashKey(voiceId, lang, text);
   const relPath = `voice/${voiceId}/${hash}.mp3`;
   const absPath = join(ROOT, 'public', 'assets', relPath);
@@ -126,14 +109,16 @@ async function generateOne(voiceId, lang, text) {
   return { relPath, skipped: false, chars: text.length };
 }
 
-const manifest = {};
+const manifest: Record<string, string> = {};
 let totalChars = 0;
 let generated = 0;
 let skipped = 0;
 let failed = 0;
 
 for (const { id: voiceId, label } of VOICES) {
-  for (const [lang, phrases] of Object.entries(PHRASES_BY_LANG)) {
+  for (const [lang, phrases] of Object.entries(PHRASES_BY_LANG) as Array<
+    [Lang, string[]]
+  >) {
     console.log(`\n--- ${label} (${voiceId}) [${lang}] ---`);
     for (const text of phrases) {
       const key = `${voiceId}:${lang}:${text}`;
@@ -152,14 +137,14 @@ for (const { id: voiceId, label } of VOICES) {
         await new Promise((r) => setTimeout(r, 80));
       } catch (err) {
         failed += 1;
-        console.log(`FAIL: ${err.message}`);
+        console.log(`FAIL: ${(err as Error).message}`);
       }
     }
   }
 }
 
 const manifestTsPath = join(ROOT, 'src', 'game', 'voiceCacheManifest.ts');
-const manifestTs = `// Auto-generated by scripts/generate-voice-cache.mjs — do not edit by hand.
+const manifestTs = `// Auto-generated by scripts/generate-voice-cache.ts — do not edit by hand.
 // Maps "\${voiceId}:\${lang}:\${text}" → static asset path under public/assets/.
 export const VOICE_CACHE_MANIFEST: Readonly<Record<string, string>> = ${JSON.stringify(
   manifest,
