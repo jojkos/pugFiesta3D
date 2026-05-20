@@ -252,6 +252,10 @@ export function Overlay({
   leaderboardError,
   highlightedEntryId,
   onSubmitScore,
+  isKidFriendly,
+  onToggleKidFriendly,
+  showAgeGate,
+  onAgeGateAnswer,
 }: Readonly<{
   countdown: number | null;
   mode: GameMode;
@@ -277,6 +281,10 @@ export function Overlay({
   leaderboardError: string | null;
   highlightedEntryId: string | null;
   onSubmitScore: (name: string) => Promise<void> | void;
+  isKidFriendly: boolean;
+  onToggleKidFriendly: () => void;
+  showAgeGate: boolean;
+  onAgeGateAnswer: (isOver15: boolean) => void;
 }>) {
   const [pendingName, setPendingName] = useState('');
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'done'>('idle');
@@ -285,16 +293,19 @@ export function Overlay({
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(() => isAppInstalled());
   const [installInstructionsOpen, setInstallInstructionsOpen] = useState(false);
-  const [iosNudgeOpen, setIosNudgeOpen] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    if (!isIosWebContext()) return false;
-    return window.localStorage.getItem(IOS_NUDGE_DISMISSED_KEY) !== '1';
-  });
+  const [iosNudgeOpen, setIosNudgeOpen] = useState(false);
+
+  useEffect(() => {
+    if (!showAgeGate && isIosWebContext() && typeof window !== 'undefined') {
+      const dismissed = window.sessionStorage.getItem(IOS_NUDGE_DISMISSED_KEY) === '1';
+      if (!dismissed) setIosNudgeOpen(true);
+    }
+  }, [showAgeGate]);
 
   const dismissIosNudge = useCallback(() => {
     setIosNudgeOpen(false);
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(IOS_NUDGE_DISMISSED_KEY, '1');
+      window.sessionStorage.setItem(IOS_NUDGE_DISMISSED_KEY, '1');
     }
   }, []);
 
@@ -398,6 +409,50 @@ export function Overlay({
 
   return (
     <>
+      {showAgeGate && (
+        <div className="age-gate-backdrop modal-backdrop">
+          <section className="age-gate menu">
+            <div className="age-gate-hero menu-hero">
+              <img
+                className="menu-logo age-gate-logo"
+                src="/assets/images/logo.png"
+                alt=""
+                aria-hidden="true"
+              />
+              <div className="age-gate-info menu-info">
+                <p className="menu-eye age-gate-eye">
+                  {lang === 'cs' ? 'věkové ověření · age verification' : 'age verification'}
+                </p>
+                <h2 className="menu-title age-gate-title">
+                  {lang === 'cs' ? 'Je ti 15 nebo více?' : 'Are you 15 or older?'}
+                </h2>
+                <p className="menu-lede age-gate-lede">
+                  {lang === 'cs' 
+                    ? 'Vyber prosím svůj věk pro přizpůsobení hry.' 
+                    : 'Please select your age to customize your gameplay.'}
+                </p>
+              </div>
+            </div>
+            <div className="age-gate-actions">
+              <button
+                type="button"
+                className="age-gate-btn age-gate-btn-yes"
+                onClick={() => onAgeGateAnswer(true)}
+              >
+                {lang === 'cs' ? 'Ano (15+)' : 'Yes (15+)'}
+              </button>
+              <button
+                type="button"
+                className="age-gate-btn age-gate-btn-no"
+                onClick={() => onAgeGateAnswer(false)}
+              >
+                {lang === 'cs' ? 'Ne (Pod 15)' : 'No (Under 15)'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {mode === 'menu' && (
         <a
           className="bmc-link"
@@ -504,6 +559,16 @@ export function Overlay({
                 onClick={onToggleMute}
               >
                 {isMuted ? '🔇' : '🔊'}
+              </button>
+              <button
+                type="button"
+                className={`menu-tool-btn ${isKidFriendly ? 'is-active' : ''}`}
+                aria-label={isKidFriendly ? "Regular Mode" : "Kid-Friendly Mode"}
+                aria-pressed={isKidFriendly}
+                title={isKidFriendly ? (lang === 'cs' ? "Dětský režim zapnut" : "Kid-Friendly Mode Active") : (lang === 'cs' ? "Dospělý režim zapnut" : "Adult Mode Active")}
+                onClick={onToggleKidFriendly}
+              >
+                {isKidFriendly ? '👶' : '🌶️'}
               </button>
               <FullscreenButton label={strings.controls.fullscreen} />
               <button
@@ -884,6 +949,16 @@ export function Overlay({
         <div className="modal-backdrop">
           <section className="pa">
             <div className="menu-toolbar">
+              <button
+                type="button"
+                className={`menu-tool-btn ${isKidFriendly ? 'is-active' : ''}`}
+                aria-label={isKidFriendly ? "Regular Mode" : "Kid-Friendly Mode"}
+                aria-pressed={isKidFriendly}
+                title={isKidFriendly ? (lang === 'cs' ? "Dětský režim zapnut" : "Kid-Friendly Mode Active") : (lang === 'cs' ? "Dospělý režim zapnut" : "Adult Mode Active")}
+                onClick={onToggleKidFriendly}
+              >
+                {isKidFriendly ? '👶' : '🌶️'}
+              </button>
               <FullscreenButton label={strings.controls.fullscreen} />
             </div>
             <div className="pa-icon">⏸</div>

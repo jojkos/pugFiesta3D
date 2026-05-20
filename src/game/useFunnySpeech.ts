@@ -24,8 +24,17 @@ export const VOICE_CHARACTERS: Record<Lang, VoiceCharacter[]> = {
   ],
 };
 
-export function getVoicesForLang(lang: Lang): VoiceCharacter[] {
-  return VOICE_CHARACTERS[lang];
+export function getVoicesForLang(lang: Lang, isKidFriendly = false): VoiceCharacter[] {
+  const base = VOICE_CHARACTERS[lang];
+  if (isKidFriendly && lang === 'cs') {
+    return base.map((v) => {
+      if (v.id === 'lily') {
+        return { ...v, label: '💃 Mopsička' };
+      }
+      return v;
+    });
+  }
+  return base;
 }
 
 export function defaultVoiceForLang(lang: Lang): string {

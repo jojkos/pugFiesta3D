@@ -2211,3 +2211,51 @@ body {
   height: 42px;
   border-radius: 10px;
 }
+
+/* ─────────── Age Gate custom styles ─────────── */
+.age-gate-backdrop {
+  z-index: 90 !important;
+}
+
+.age-gate {
+  max-width: 440px !important;
+}
+
+.age-gate-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.age-gate-btn {
+  flex: 1 !important;
+  font-size: 14px !important;
+  padding: 14px 20px !important;
+  border-radius: var(--radius-pill) !important;
+  text-align: center;
+  transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease !important;
+}
+
+.age-gate-btn-yes {
+  background: linear-gradient(135deg, #ff9233, #ff5e33) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 12px rgba(255, 94, 51, 0.25);
+}
+
+.age-gate-btn-yes:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 6px 16px rgba(255, 94, 51, 0.35);
+}
+
+.age-gate-btn-no {
+  border: 2px solid var(--line-strong) !important;
+  background: var(--paper-2) !important;
+  color: var(--ink) !important;
+  font-weight: 700 !important;
+}
+
+.age-gate-btn-no:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  background: var(--paper-3) !important;
+}
