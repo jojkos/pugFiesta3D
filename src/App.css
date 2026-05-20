@@ -1149,10 +1149,7 @@ body {
 
 .lb {
   container-type: inline-size;
-  /* Landscape mobile + desktop both want a wider modal so the podium and the
-     rest-of-list can sit side by side. Falls back to vertical stack on very
-     narrow widths via the container-query below. */
-  width: min(760px, 100%);
+  width: min(460px, 100%);
   max-height: calc(100dvh - 28px);
   min-height: 0;
   overflow: hidden;
@@ -1217,98 +1214,27 @@ body {
   overflow: hidden;
 }
 
-.lb-podium {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  align-items: stretch;
-}
-
-.lb-pod {
-  background: var(--paper-2);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 6px 6px 5px;
-  text-align: center;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.lb-pod.gold {
-  background: linear-gradient(180deg, #fff0c5, #ffe09b);
-  border-color: #f3b34a;
-  box-shadow: 0 2px 0 #e9a93a;
-}
-
-.lb-pod.silver {
-  background: linear-gradient(180deg, #f1edea, #e2dad5);
-  border-color: #c4bdb6;
-}
-
-.lb-pod.bronze {
-  background: linear-gradient(180deg, #f1d6c0, #e2bc9c);
-  border-color: #c98358;
-}
-
-.lb-pod.is-empty {
-  opacity: 0.55;
-}
-
-.lb-pod.is-you {
-  outline: 2px solid var(--warm-1);
-  outline-offset: 2px;
-}
-
-.lb-pod-medal {
-  font-size: 16px;
-  display: block;
-  line-height: 1;
-  margin-bottom: 2px;
-}
-
-.lb-pod-name {
-  font-weight: 800;
-  font-size: 10.5px;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.lb-pod-score {
-  margin-top: 1px;
-  font-family: var(--display-font);
-  font-weight: 800;
-  font-size: 16px;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.lb-pod-suffix {
-  font-size: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ink-mute);
-  font-weight: 700;
-}
-
 .lb-list {
   display: flex;
   flex-direction: column;
   background: var(--paper-2);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 4px;
+  padding: 4px 4px 4px;
   overflow-y: auto;
   min-height: 0;
   flex: 1 1 auto;
+  --lb-col-rank: 32px;
+  --lb-col-score: 56px;
+  --lb-col-gap: 10px;
 }
 
 .lb-list-head {
   display: grid;
-  grid-template-columns: 28px 1fr auto;
-  gap: 10px;
-  padding: 8px 10px 6px;
+  grid-template-columns: var(--lb-col-rank) minmax(0, 1fr) var(--lb-col-score);
+  gap: var(--lb-col-gap);
+  padding: 12px 10px 8px;
+  margin-bottom: 5px;
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -1321,14 +1247,26 @@ body {
   box-shadow: 0 4px 6px -4px rgba(72, 31, 17, 0.18);
 }
 
+.lb-list-head > span:first-child {
+  text-align: center;
+}
+
+.lb-list-head > span:last-child {
+  text-align: right;
+}
+
 .lb-row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: var(--lb-col-rank) minmax(0, 1fr) var(--lb-col-score);
+  gap: var(--lb-col-gap);
   align-items: center;
   padding: 7px 10px;
   border-radius: 9px;
   font-size: 12.5px;
+}
+
+.lb-row .lb-score {
+  text-align: right;
 }
 
 .lb-name-wrap {
@@ -1344,15 +1282,6 @@ body {
   font-weight: 600;
   letter-spacing: 0.02em;
   margin-top: 1px;
-}
-
-.lb-pod-date {
-  margin-top: 4px;
-  font-size: 9px;
-  color: var(--ink-mute);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  line-height: 1;
 }
 
 .lb-row + .lb-row {
@@ -1382,6 +1311,11 @@ body {
   text-align: center;
   font-variant-numeric: tabular-nums;
   font-size: 11.5px;
+}
+
+.lb-rank-medal {
+  font-size: 16px;
+  line-height: 1;
 }
 
 .lb-name {
@@ -1463,29 +1397,10 @@ body {
   color: #6b4a3a;
 }
 
-/* Side-by-side layout: podium left, rest-of-list right. Triggers at ~460px
-   so landscape mobile gets it; below this we fall back to the vertical stack
-   defined above. */
+/* On wider modals the dates eat row width without adding much. Hide them so
+   names + scores breathe. Below this width the dates come back. */
 @container (min-width: 460px) {
-  .lb-body {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-    gap: 16px;
-    align-items: stretch;
-  }
-  .lb-podium {
-    align-self: start;
-  }
-  .lb-list {
-    /* Fill the grid row's full height instead of capping at 320px — gives the
-       rest-of-list real vertical space on landscape phones. */
-    max-height: none;
-    min-height: 0;
-  }
-  /* The dates eat row width without helping gameplay. Hide them in the
-     side-by-side layout so names + scores breathe. */
-  .lb-date,
-  .lb-pod-date {
+  .lb-date {
     display: none;
   }
 }

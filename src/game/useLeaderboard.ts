@@ -13,7 +13,7 @@ export type LeaderboardState = {
   submit: (input: { name: string; score: number }) => Promise<LeaderboardEntry | null>;
 };
 
-export function useLeaderboard(topN = 10, refreshKey = 0): LeaderboardState {
+export function useLeaderboard(topN?: number, refreshKey = 0): LeaderboardState {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +26,13 @@ export function useLeaderboard(topN = 10, refreshKey = 0): LeaderboardState {
     }
     setLoading(true);
     setError(null);
-    const { data, error: err } = await client
+    let query = client
       .from(TABLE)
       .select('id, player_name, score, created_at')
       .order('score', { ascending: false })
-      .order('created_at', { ascending: true })
-      .limit(topN);
+      .order('created_at', { ascending: true });
+    if (topN !== undefined) query = query.limit(topN);
+    const { data, error: err } = await query;
     setLoading(false);
     if (err) {
       setError(err.message);

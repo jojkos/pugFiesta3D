@@ -21,6 +21,8 @@ type AudioBus = {
 
 type MusicTrack = 'menu' | 'ingame';
 
+// Swap `ingame` between ingame.mp3 / ingame2.mp3 / ingame3.mp3 to A/B different
+// in-game music takes without touching the rest of the audio plumbing.
 const MUSIC_TRACK_URLS: Record<MusicTrack, string> = {
   menu: '/assets/audio/menu.mp3',
   ingame: '/assets/audio/ingame.mp3',

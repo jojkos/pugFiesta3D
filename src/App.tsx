@@ -32,6 +32,13 @@ import {
 import { useLeaderboard } from './game/useLeaderboard';
 import type { AnalogInput, GameMode, KeyboardState } from './game/types';
 
+// Flip to false to dormant the kid-friendly mode feature without removing code:
+// disables the age gate, the toggle button, and forces adult strings everywhere.
+const KID_MODE_ENABLED = false;
+
+const KID_FRIENDLY_STORAGE_KEY = 'pug-banger-fiesta-kid-friendly';
+const AGE_GATE_STORAGE_KEY = 'pug-banger-fiesta-age-gate-answered';
+
 function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -68,15 +75,17 @@ function App() {
   });
 
   const [isKidFriendly, setIsKidFriendly] = useState(() => {
+    if (!KID_MODE_ENABLED) return false;
     if (globalThis.window === undefined) return true;
-    const stored = globalThis.sessionStorage.getItem('pug-banger-fiesta-kid-friendly');
+    const stored = globalThis.localStorage.getItem(KID_FRIENDLY_STORAGE_KEY);
     if (stored !== null) return stored === 'true';
-    return true; // Default to true if not set
+    return true;
   });
 
   const [showAgeGate, setShowAgeGate] = useState(() => {
+    if (!KID_MODE_ENABLED) return false;
     if (globalThis.window === undefined) return false;
-    return globalThis.sessionStorage.getItem('pug-age-gate-answered') !== 'true';
+    return globalThis.localStorage.getItem(AGE_GATE_STORAGE_KEY) !== 'true';
   });
 
   useEffect(() => {
@@ -149,7 +158,7 @@ function App() {
     error: leaderboardError,
     submit: submitLeaderboard,
     refresh: refreshLeaderboard,
-  } = useLeaderboard(10);
+  } = useLeaderboard();
   const [keys, setKeys] = useState<KeyboardState>({
     up: false,
     down: false,
@@ -694,12 +703,13 @@ function App() {
             const entry = await submitLeaderboard({ name, score });
             if (entry) setSubmittedEntryId(entry.id);
           }}
+          kidModeEnabled={KID_MODE_ENABLED}
           isKidFriendly={isKidFriendly}
           onToggleKidFriendly={() => {
             setIsKidFriendly((prev) => {
               const next = !prev;
               if (globalThis.window !== undefined) {
-                globalThis.sessionStorage.setItem('pug-banger-fiesta-kid-friendly', String(next));
+                globalThis.localStorage.setItem(KID_FRIENDLY_STORAGE_KEY, String(next));
               }
               return next;
             });
@@ -708,8 +718,8 @@ function App() {
           onAgeGateAnswer={(isOver15) => {
             setIsKidFriendly(!isOver15);
             if (globalThis.window !== undefined) {
-              globalThis.sessionStorage.setItem('pug-banger-fiesta-kid-friendly', String(!isOver15));
-              globalThis.sessionStorage.setItem('pug-age-gate-answered', 'true');
+              globalThis.localStorage.setItem(KID_FRIENDLY_STORAGE_KEY, String(!isOver15));
+              globalThis.localStorage.setItem(AGE_GATE_STORAGE_KEY, 'true');
             }
             setShowAgeGate(false);
           }}

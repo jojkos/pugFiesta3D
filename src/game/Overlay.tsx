@@ -252,6 +252,7 @@ export function Overlay({
   leaderboardError,
   highlightedEntryId,
   onSubmitScore,
+  kidModeEnabled,
   isKidFriendly,
   onToggleKidFriendly,
   showAgeGate,
@@ -281,6 +282,7 @@ export function Overlay({
   leaderboardError: string | null;
   highlightedEntryId: string | null;
   onSubmitScore: (name: string) => Promise<void> | void;
+  kidModeEnabled: boolean;
   isKidFriendly: boolean;
   onToggleKidFriendly: () => void;
   showAgeGate: boolean;
@@ -295,17 +297,19 @@ export function Overlay({
   const [installInstructionsOpen, setInstallInstructionsOpen] = useState(false);
   const [iosNudgeOpen, setIosNudgeOpen] = useState(false);
 
+  // Defer opening the iOS install nudge until the age gate is dismissed so the
+  // two modals don't stack on top of each other on first load.
   useEffect(() => {
-    if (!showAgeGate && isIosWebContext() && typeof window !== 'undefined') {
-      const dismissed = window.sessionStorage.getItem(IOS_NUDGE_DISMISSED_KEY) === '1';
-      if (!dismissed) setIosNudgeOpen(true);
-    }
+    if (showAgeGate) return;
+    if (!isIosWebContext() || typeof window === 'undefined') return;
+    if (window.localStorage.getItem(IOS_NUDGE_DISMISSED_KEY) === '1') return;
+    setIosNudgeOpen(true);
   }, [showAgeGate]);
 
   const dismissIosNudge = useCallback(() => {
     setIosNudgeOpen(false);
     if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem(IOS_NUDGE_DISMISSED_KEY, '1');
+      window.localStorage.setItem(IOS_NUDGE_DISMISSED_KEY, '1');
     }
   }, []);
 
@@ -395,7 +399,9 @@ export function Overlay({
   const langFlag = LANG_FLAGS[lang];
   const currentTeam = findTeam(jerseyColor, jerseyAccentColor);
   const isSolid = eqHex(jerseyColor, jerseyAccentColor);
-  const teamLabel = currentTeam?.label ?? strings.menu.teamCustom;
+  const teamLabel = currentTeam
+    ? strings.teams[currentTeam.id] ?? currentTeam.label
+    : strings.menu.teamCustom;
   const voiceLabel =
     voiceCharacters.find((character) => character.voiceId === voiceId)?.label ??
     voiceCharacters[0]?.label ??
@@ -420,17 +426,9 @@ export function Overlay({
                 aria-hidden="true"
               />
               <div className="age-gate-info menu-info">
-                <p className="menu-eye age-gate-eye">
-                  {lang === 'cs' ? 'věkové ověření · age verification' : 'age verification'}
-                </p>
-                <h2 className="menu-title age-gate-title">
-                  {lang === 'cs' ? 'Je ti 15 nebo více?' : 'Are you 15 or older?'}
-                </h2>
-                <p className="menu-lede age-gate-lede">
-                  {lang === 'cs' 
-                    ? 'Vyber prosím svůj věk pro přizpůsobení hry.' 
-                    : 'Please select your age to customize your gameplay.'}
-                </p>
+                <p className="menu-eye age-gate-eye">{strings.ageGate.eyebrow}</p>
+                <h2 className="menu-title age-gate-title">{strings.ageGate.title}</h2>
+                <p className="menu-lede age-gate-lede">{strings.ageGate.lede}</p>
               </div>
             </div>
             <div className="age-gate-actions">
@@ -439,14 +437,14 @@ export function Overlay({
                 className="age-gate-btn age-gate-btn-yes"
                 onClick={() => onAgeGateAnswer(true)}
               >
-                {lang === 'cs' ? 'Ano (15+)' : 'Yes (15+)'}
+                {strings.ageGate.yes}
               </button>
               <button
                 type="button"
                 className="age-gate-btn age-gate-btn-no"
                 onClick={() => onAgeGateAnswer(false)}
               >
-                {lang === 'cs' ? 'Ne (Pod 15)' : 'No (Under 15)'}
+                {strings.ageGate.no}
               </button>
             </div>
           </section>
@@ -560,16 +558,18 @@ export function Overlay({
               >
                 {isMuted ? '🔇' : '🔊'}
               </button>
-              <button
-                type="button"
-                className={`menu-tool-btn ${isKidFriendly ? 'is-active' : ''}`}
-                aria-label={isKidFriendly ? "Regular Mode" : "Kid-Friendly Mode"}
-                aria-pressed={isKidFriendly}
-                title={isKidFriendly ? (lang === 'cs' ? "Dětský režim zapnut" : "Kid-Friendly Mode Active") : (lang === 'cs' ? "Dospělý režim zapnut" : "Adult Mode Active")}
-                onClick={onToggleKidFriendly}
-              >
-                {isKidFriendly ? '👶' : '🌶️'}
-              </button>
+              {kidModeEnabled && (
+                <button
+                  type="button"
+                  className={`menu-tool-btn ${isKidFriendly ? 'is-active' : ''}`}
+                  aria-label={isKidFriendly ? 'Regular Mode' : 'Kid-Friendly Mode'}
+                  aria-pressed={isKidFriendly}
+                  title={isKidFriendly ? (lang === 'cs' ? 'Dětský režim zapnut' : 'Kid-Friendly Mode Active') : (lang === 'cs' ? 'Dospělý režim zapnut' : 'Adult Mode Active')}
+                  onClick={onToggleKidFriendly}
+                >
+                  {isKidFriendly ? '👶' : '🌶️'}
+                </button>
+              )}
               <FullscreenButton label={strings.controls.fullscreen} />
               <button
                 type="button"
@@ -643,20 +643,21 @@ export function Overlay({
                     <div className="team-grid">
                       {TEAMS.map((team) => {
                         const active = currentTeam?.id === team.id;
+                        const label = strings.teams[team.id] ?? team.label;
                         return (
                           <button
                             key={team.id}
                             type="button"
                             className={`team-badge ${active ? 'on' : ''}`}
                             style={{ background: teamBadgeBackground(team) }}
-                            title={team.label}
-                            aria-label={strings.menu.teamBadgeLabel(team.label)}
+                            title={label}
+                            aria-label={strings.menu.teamBadgeLabel(label)}
                             onClick={() => {
                               onJerseyColorChange(team.primary);
                               onJerseyAccentColorChange(team.accent ?? team.primary);
                             }}
                           >
-                            {team.label}
+                            {label}
                           </button>
                         );
                       })}
@@ -949,16 +950,18 @@ export function Overlay({
         <div className="modal-backdrop">
           <section className="pa">
             <div className="menu-toolbar">
-              <button
-                type="button"
-                className={`menu-tool-btn ${isKidFriendly ? 'is-active' : ''}`}
-                aria-label={isKidFriendly ? "Regular Mode" : "Kid-Friendly Mode"}
-                aria-pressed={isKidFriendly}
-                title={isKidFriendly ? (lang === 'cs' ? "Dětský režim zapnut" : "Kid-Friendly Mode Active") : (lang === 'cs' ? "Dospělý režim zapnut" : "Adult Mode Active")}
-                onClick={onToggleKidFriendly}
-              >
-                {isKidFriendly ? '👶' : '🌶️'}
-              </button>
+              {kidModeEnabled && (
+                <button
+                  type="button"
+                  className={`menu-tool-btn ${isKidFriendly ? 'is-active' : ''}`}
+                  aria-label={isKidFriendly ? 'Regular Mode' : 'Kid-Friendly Mode'}
+                  aria-pressed={isKidFriendly}
+                  title={isKidFriendly ? (lang === 'cs' ? 'Dětský režim zapnut' : 'Kid-Friendly Mode Active') : (lang === 'cs' ? 'Dospělý režim zapnut' : 'Adult Mode Active')}
+                  onClick={onToggleKidFriendly}
+                >
+                  {isKidFriendly ? '👶' : '🌶️'}
+                </button>
+              )}
               <FullscreenButton label={strings.controls.fullscreen} />
             </div>
             <div className="pa-icon">⏸</div>
