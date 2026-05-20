@@ -67,12 +67,24 @@ function App() {
     return DEFAULT_LANG;
   });
 
+  const [isKidFriendly, setIsKidFriendly] = useState(() => {
+    if (globalThis.window === undefined) return true;
+    const stored = globalThis.sessionStorage.getItem('pug-banger-fiesta-kid-friendly');
+    if (stored !== null) return stored === 'true';
+    return true; // Default to true if not set
+  });
+
+  const [showAgeGate, setShowAgeGate] = useState(() => {
+    if (globalThis.window === undefined) return false;
+    return globalThis.sessionStorage.getItem('pug-age-gate-answered') !== 'true';
+  });
+
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.documentElement.lang = lang;
     }
   }, [lang]);
-  const strings = getStrings(lang);
+  const strings = getStrings(lang, isKidFriendly);
   const [voiceId, setVoiceId] = useState(() => {
     const fallback = defaultVoiceForLang(lang);
     if (globalThis.window === undefined) return fallback;
@@ -239,7 +251,9 @@ function App() {
   // below unlocks the context AND restarts the active source once the user
   // first interacts anywhere on the page.
   useEffect(() => {
-    if (roundEnding) {
+    if (showAgeGate) {
+      playMusicTrack(null);
+    } else if (roundEnding) {
       // Cut music during the post-whistle silence beat — the moment lands
       // harder without an active loop running underneath it.
       playMusicTrack(null);
@@ -248,7 +262,7 @@ function App() {
     } else {
       playMusicTrack('menu');
     }
-  }, [mode, roundEnding, playMusicTrack]);
+  }, [mode, roundEnding, showAgeGate, playMusicTrack]);
 
   // One-time audio unlock: on the FIRST user interaction anywhere on the page,
   // resume the suspended AudioContext and explicitly kick off the current
@@ -267,12 +281,14 @@ function App() {
   // latest value without needing to re-register on every mode change.
   const desiredMusicTrackRef = useRef<'menu' | 'ingame' | null>('menu');
   useEffect(() => {
-    desiredMusicTrackRef.current = roundEnding
+    desiredMusicTrackRef.current = showAgeGate
       ? null
-      : mode === 'playing'
-        ? 'ingame'
-        : 'menu';
-  }, [mode, roundEnding]);
+      : roundEnding
+        ? null
+        : mode === 'playing'
+          ? 'ingame'
+          : 'menu';
+  }, [mode, roundEnding, showAgeGate]);
   useEffect(() => {
     if (audioUnlockedRef.current) {
       return;
@@ -595,7 +611,7 @@ function App() {
                 }
               } else {
                 const multiPhrase = strings.multiTagPhrases[chainSize];
-                phraseText = multiPhrase ?? pickRandomTagPhrase(lang);
+                phraseText = multiPhrase ?? pickRandomTagPhrase(lang, isKidFriendly);
                 phraseKind = multiPhrase ? 'multi' : 'tag';
                 playTag();
                 speakPhrase(phraseText);
@@ -666,7 +682,7 @@ function App() {
             }
           }}
           strings={strings}
-          voiceCharacters={getVoicesForLang(lang)}
+          voiceCharacters={getVoicesForLang(lang, isKidFriendly)}
           paused={paused}
           score={score}
           leaderboardEntries={leaderboardEntries}
@@ -677,6 +693,25 @@ function App() {
             if (score <= 0) return;
             const entry = await submitLeaderboard({ name, score });
             if (entry) setSubmittedEntryId(entry.id);
+          }}
+          isKidFriendly={isKidFriendly}
+          onToggleKidFriendly={() => {
+            setIsKidFriendly((prev) => {
+              const next = !prev;
+              if (globalThis.window !== undefined) {
+                globalThis.sessionStorage.setItem('pug-banger-fiesta-kid-friendly', String(next));
+              }
+              return next;
+            });
+          }}
+          showAgeGate={showAgeGate}
+          onAgeGateAnswer={(isOver15) => {
+            setIsKidFriendly(!isOver15);
+            if (globalThis.window !== undefined) {
+              globalThis.sessionStorage.setItem('pug-banger-fiesta-kid-friendly', String(!isOver15));
+              globalThis.sessionStorage.setItem('pug-age-gate-answered', 'true');
+            }
+            setShowAgeGate(false);
           }}
         />
 

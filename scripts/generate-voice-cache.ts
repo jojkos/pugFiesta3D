@@ -17,7 +17,7 @@ import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { STRINGS, type Lang } from '../src/game/i18n.ts';
+import { getStrings, type Lang } from '../src/game/i18n.ts';
 import { VOICE_CHARACTERS } from '../src/game/useFunnySpeech.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -56,13 +56,18 @@ const VOICES = Object.values(VOICE_CHARACTERS)
   }, []);
 
 function phrasesForLang(lang: Lang): string[] {
-  const s = STRINGS[lang];
-  // Multi-tag phrase values + the goal shout + every random tag phrase. This
-  // is the complete set of strings the runtime ever passes to speakPhrase().
-  const multi = Object.values(s.multiTagPhrases).filter(
-    (v): v is string => typeof v === 'string',
-  );
-  return [...multi, s.goalShout, ...s.tagPhrases];
+  const adult = getStrings(lang, false);
+  const kid = getStrings(lang, true);
+
+  const extract = (s: typeof adult) => {
+    const multi = Object.values(s.multiTagPhrases).filter(
+      (v): v is string => typeof v === 'string',
+    );
+    return [...multi, s.goalShout, ...s.tagPhrases];
+  };
+
+  const allPhrases = [...extract(adult), ...extract(kid)];
+  return Array.from(new Set(allPhrases));
 }
 
 const PHRASES_BY_LANG: Record<Lang, string[]> = {

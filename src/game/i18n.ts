@@ -246,11 +246,108 @@ export const STRINGS = { cs, en } as const;
 
 export type Strings = typeof cs;
 
-export function getStrings(lang: Lang): Strings {
-  return STRINGS[lang];
+export function getStrings(lang: Lang, isKidFriendly = false): Strings {
+  const base = STRINGS[lang];
+  if (!isKidFriendly) {
+    return base;
+  }
+
+  // Sanitized overrides for kid-friendly mode
+  if (lang === 'en') {
+    return {
+      ...base,
+      menu: {
+        ...base.menu,
+        eyebrow: 'pug party arcade',
+        lede: 'Stick that snout out, time the pounce, hug the leaderboard.',
+        bestSoFar: (n: number) => `Top score so far · ${n} hugged`,
+      },
+      pause: {
+        ...base.pause,
+        title: 'Catch your breath, master',
+        lede: 'Tap resume when you\'re ready to chase high scores again.',
+      },
+      results: {
+        ...base.results,
+        suffix: 'hugged',
+        tryAgain: 'Tighten that timing and keep on hugging!',
+      },
+      leaderboard: {
+        ...base.leaderboard,
+        scoreHeader: 'hugged',
+      },
+      help: {
+        ...base.help,
+        goalBody: 'You have 45 seconds. Hug as many pugs as possible. Dash takes a moment to recharge, so save it for pugs in range. Land on multiple pugs at once for a double or triple hug bonus. A hug inside the goal is worth double points.',
+      },
+      multiTagPhrases: {
+        2: 'Double Hug!',
+        3: 'Pug Party!',
+      },
+      tagPhrases: [
+        'Sit, stay... play!',
+        'Hot dog incoming!',
+        'Boss pup',
+        'Sniffed it, liked it, marked it',
+        'Wiggle wiggle wiggle',
+        'Scooby dooby doo',
+        'You are awesome!',
+        'Who let the dogs out',
+        'Cuddle supreme',
+        'No leash, no shame, all fun',
+      ],
+    };
+  } else {
+    // cs - Czech
+    return {
+      ...base,
+      menu: {
+        ...base.menu,
+        eyebrow: 'mopsí párty',
+        lede: 'Vyraž ven a obejmi co nejvíce mopsích kamarádů!',
+        start: 'ZAHÁJIT HRU',
+        bestSoFar: (n: number) => `Zatím nejvíc obejmutých: ${n} kamarádů`,
+      },
+      pause: {
+        ...base.pause,
+        lede: 'Dej si limču a pojď si zase hrát.',
+      },
+      results: {
+        ...base.results,
+        suffix: 'obejmutých',
+        tryAgain: 'Haf haf! Zkus to znovu!',
+      },
+      leaderboard: {
+        ...base.leaderboard,
+        scoreHeader: 'objetí',
+      },
+      help: {
+        ...base.help,
+        goalBody: 'Máš 45 vteřin. Obejmi co nejvíce mopsíků. Když trefíš víc mopsíků naráz, získáš bonus za kombo. Trefa v brance je za dva body.',
+      },
+      multiTagPhrases: {
+        2: 'Dvojité objetí!',
+        3: 'Mopsí párty!',
+      },
+      tagPhrases: [
+        'štěká, ale nekouše',
+        'utrhnem se ze řetězu',
+        'má naštěkáno do boudy!',
+        'beng beng beng',
+        'vrtí ocasem, má radost',
+        'to je psina',
+        'hlídej si ocas, jdu na věc',
+        'mopsí kamarád!',
+        'štěknem si',
+        'epes rádes',
+      ],
+    };
+  }
 }
 
-export function pickRandomTagPhrase(lang: Lang): string {
-  const list = STRINGS[lang].tagPhrases;
+export function pickRandomTagPhrase(lang: Lang, isKidFriendly = false): string {
+  const strings = getStrings(lang, isKidFriendly);
+  const list = strings.tagPhrases;
   return list[Math.floor(Math.random() * list.length)];
 }
+
