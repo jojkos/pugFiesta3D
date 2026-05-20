@@ -82,8 +82,9 @@ type InstallPromptEvent = Event & {
 function isAppInstalled(): boolean {
   if (typeof window === 'undefined') return false;
   const standaloneMedia = window.matchMedia?.('(display-mode: standalone)').matches ?? false;
+  const fullscreenMedia = window.matchMedia?.('(display-mode: fullscreen)').matches ?? false;
   const iosStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return standaloneMedia || iosStandalone;
+  return standaloneMedia || fullscreenMedia || iosStandalone;
 }
 
 function isIosWebContext(): boolean {
@@ -313,6 +314,21 @@ export function Overlay({
       window.removeEventListener('beforeinstallprompt', handler);
       window.removeEventListener('appinstalled', onInstalled);
     };
+  }, []);
+
+  // Check if the app is already installed on the device (for Android/Desktop Chrome).
+  // This allows us to hide the install button even when browsing inside a normal browser tab.
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && 'getInstalledRelatedApps' in navigator) {
+      (navigator as Navigator & { getInstalledRelatedApps?: () => Promise<unknown[]> })
+        .getInstalledRelatedApps?.()
+        .then((apps) => {
+          if (apps && apps.length > 0) {
+            setIsInstalled(true);
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const handleInstall = useCallback(async () => {
