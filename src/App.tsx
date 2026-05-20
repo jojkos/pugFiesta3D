@@ -44,6 +44,7 @@ function App() {
     playMusicTrack,
     setMusicPlaybackRate,
     resumeAudio,
+    suspendAudio,
     unlockAudio,
     preloadAudio,
   } = useArcadeAudio(isMuted);
@@ -300,6 +301,66 @@ function App() {
       events.forEach((event) => document.removeEventListener(event, tryUnlock));
     };
   }, [unlockAudio, playMusicTrack]);
+
+  // Automatically pause the game and suspend audio when the tab is hidden,
+  // app is closed, or focus is lost, and resume audio when re-activated.
+  useEffect(() => {
+    const handleSuspension = () => {
+      // Pause the game automatically if we are currently playing
+      if (
+        mode === 'playing' &&
+        !paused &&
+        countdown === null &&
+        !startingRound &&
+        !roundEnding
+      ) {
+        setPaused(true);
+      }
+      // Suspend the AudioContext
+      suspendAudio();
+    };
+
+    const handleResume = () => {
+      // Automatically resume the AudioContext if it has been unlocked previously
+      if (audioUnlockedRef.current) {
+        resumeAudio();
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        handleSuspension();
+      } else {
+        handleResume();
+      }
+    };
+
+    const onBlur = () => {
+      handleSuspension();
+    };
+
+    const onFocus = () => {
+      handleResume();
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('blur', onBlur);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [
+    mode,
+    paused,
+    countdown,
+    startingRound,
+    roundEnding,
+    resumeAudio,
+    suspendAudio,
+  ]);
 
   useEffect(() => {
     if (!startingRound) {

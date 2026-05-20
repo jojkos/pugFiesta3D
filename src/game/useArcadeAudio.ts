@@ -126,6 +126,13 @@ export function useArcadeAudio(muted: boolean) {
     }
   }, [createBus]);
 
+  const suspendAudio = useCallback(() => {
+    const bus = busRef.current;
+    if (bus && bus.context.state === 'running') {
+      void bus.context.suspend();
+    }
+  }, []);
+
   const ensureBus = useCallback(async (): Promise<AudioBus | null> => {
     const bus = createBus();
     if (!bus) return null;
@@ -523,6 +530,16 @@ export function useArcadeAudio(muted: boolean) {
       // Synchronous resume() so iOS counts this as gesture-activated.
       void bus.context.resume();
     }
+    // Silent HTML5 Audio playback trick to permanently whitelist HTMLAudioElements on iOS
+    try {
+      const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA');
+      const playPromise = silentAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {});
+      }
+    } catch {
+      // Swallow error - best-effort fallback
+    }
     if (activeMusicRef.current) {
       stopActiveMusic(0);
     }
@@ -600,6 +617,7 @@ export function useArcadeAudio(muted: boolean) {
       },
       setMusicPlaybackRate,
       resumeAudio,
+      suspendAudio,
       unlockAudio,
       preloadAudio,
     }),
@@ -613,6 +631,7 @@ export function useArcadeAudio(muted: boolean) {
       playMusicTrack,
       setMusicPlaybackRate,
       resumeAudio,
+      suspendAudio,
       unlockAudio,
       preloadAudio,
     ],
