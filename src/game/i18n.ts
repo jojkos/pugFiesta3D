@@ -101,6 +101,16 @@ const cs = {
     iosBody:
       'Safari fullscreen na iOS nejde z webu. Sdílet → "Přidat na plochu" → spustit z ikony. Pojede bez baru, jako appka.',
   },
+  ageGate: {
+    eyebrow: 'věkové ověření · age verification',
+    title: 'Je ti 15 nebo více?',
+    lede: 'Vyber prosím svůj věk pro přizpůsobení hry.',
+    yes: 'Ano (15+)',
+    no: 'Ne (Pod 15)',
+  },
+  teams: {
+    psidevky: 'Psí děvky',
+  } as Record<string, string>,
   multiTagPhrases: {
     2: 'Trojka!',
     3: 'Grupáč!',
@@ -220,6 +230,16 @@ const en: typeof cs = {
     iosBody:
       'iOS Safari can\'t go fullscreen from the web. Tap Share → "Add to Home Screen" → launch from the icon. It runs without browser chrome, like an app.',
   },
+  ageGate: {
+    eyebrow: 'age verification',
+    title: 'Are you 15 or older?',
+    lede: 'Please select your age to customize your gameplay.',
+    yes: 'Yes (15+)',
+    no: 'No (Under 15)',
+  },
+  teams: {
+    psidevky: 'Psí děvky',
+  },
   multiTagPhrases: {
     2: 'Threesome!',
     3: 'Gangbang!',
@@ -256,6 +276,10 @@ export function getStrings(lang: Lang, isKidFriendly = false): Strings {
   if (lang === 'en') {
     return {
       ...base,
+      teams: {
+        ...base.teams,
+        psidevky: 'Mazlivý buldočci',
+      },
       menu: {
         ...base.menu,
         eyebrow: 'pug party arcade',
@@ -301,6 +325,10 @@ export function getStrings(lang: Lang, isKidFriendly = false): Strings {
     // cs - Czech
     return {
       ...base,
+      teams: {
+        ...base.teams,
+        psidevky: 'Mazlivý buldočci',
+      },
       menu: {
         ...base.menu,
         eyebrow: 'mopsí párty',
