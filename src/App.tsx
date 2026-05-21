@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import {
   CAMERA_POSITION,
-  GOAL_SCORE_MULTIPLIER,
   GOAL_SHOUT_COOLDOWN,
   ROUND_DURATION,
   ROUND_INTRO_DELAY,
 } from './game/config';
+import { computeLatchPoints } from './game/scoring';
 import { clampInput } from './game/input';
 import { Overlay } from './game/Overlay';
 import { PrototypeScene } from './game/PrototypeScene';
@@ -606,9 +606,7 @@ function App() {
             activePhrase={activePhrase}
             onDashStart={playDash}
             onTag={(chainSize, inGoal) => {
-              // One point per latched pug (chain size), with the goal
-               // multiplier on top so a goal-mouth trojka/grupáč pays double.
-              const points = chainSize * (inGoal ? GOAL_SCORE_MULTIPLIER : 1);
+              const points = computeLatchPoints(chainSize, inGoal);
               let phraseText: string;
               let phraseKind: 'tag' | 'multi' | 'goal';
               if (inGoal) {

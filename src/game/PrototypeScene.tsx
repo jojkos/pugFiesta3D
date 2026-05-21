@@ -11,8 +11,6 @@ import {
   DASH_SPEED,
   FIELD_HALF_X,
   FIELD_HALF_Z,
-  GOAL_LINE_THRESHOLD,
-  GOAL_WIDTH,
   HITSTOP_DURATION,
   LATCH_DURATION,
   LATCH_SNAP_DURATION,
@@ -27,6 +25,7 @@ import {
 } from './config';
 import { PugCharacter, type CharacterAction } from './CharacterModels';
 import { Environment } from './Environment';
+import { isNpcInGoalMouth } from './scoring';
 import type { AnalogInput, NpcState } from './types';
 
 type PlayerState = {
@@ -487,9 +486,7 @@ export function PrototypeScene({
             });
 
             const chainSize = playerData.latchedNpcIds.length;
-            const inGoalMouth =
-              Math.abs(npc.x) >= FIELD_HALF_X - GOAL_LINE_THRESHOLD &&
-              Math.abs(npc.z) <= GOAL_WIDTH / 2;
+            const inGoalMouth = isNpcInGoalMouth(npc.x, npc.z);
             if (inGoalMouth) {
               spawnConfetti(
                 confettiParticles.current,
