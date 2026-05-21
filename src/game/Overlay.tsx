@@ -1024,6 +1024,7 @@ export function Overlay({
                 highlightId={highlightedEntryId}
                 strings={strings}
                 lang={lang}
+                limit={leaderboardEntries.length}
               />
             </aside>
 
@@ -1047,10 +1048,6 @@ export function Overlay({
                     : strings.leaderboard.submit}
                 </button>
               </form>
-            )}
-
-            {submitState === 'done' && (
-              <p className="res-submit-done">{strings.leaderboard.submitted}</p>
             )}
 
             <div className="res-actions">
