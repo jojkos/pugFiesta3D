@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getSupabase, type LeaderboardEntry } from '../lib/supabase';
+import { sanitizeName } from './leaderboardUtils';
 
 const TABLE = 'leaderboard';
-const MAX_NAME_LEN = 24;
 const MAX_SCORE = 9999;
 
 export type LeaderboardState = {
@@ -47,7 +47,7 @@ export function useLeaderboard(topN?: number, refreshKey = 0): LeaderboardState 
       setError('Supabase not configured');
       return null;
     }
-    const trimmedName = name.trim().slice(0, MAX_NAME_LEN) || 'Anonymouse';
+    const trimmedName = sanitizeName(name);
     const safeScore = Number.isFinite(score) ? score : 0;
     const clampedScore = Math.max(0, Math.min(MAX_SCORE, Math.floor(safeScore)));
 

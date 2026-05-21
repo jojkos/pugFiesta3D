@@ -7,6 +7,7 @@ import type { VoiceCharacter } from './useFunnySpeech';
 import { Leaderboard, MiniLeaderboard } from './Leaderboard';
 import { SUPPORTED_LANGS, type Lang, type Strings } from './i18n';
 import { ROUND_DURATION } from './config';
+import { sanitizeName } from './leaderboardUtils';
 
 const LANG_FLAGS: Record<Lang, string> = {
   cs: '🇨🇿',
@@ -385,13 +386,16 @@ export function Overlay({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (submitState !== 'idle') return;
-    const trimmed = pendingName.trim();
-    if (!trimmed) return;
+    const cleaned = sanitizeName(pendingName);
+    // Reject only if the raw input is whitespace-only — sanitizeName would
+    // give us "Anonymouse" otherwise, which we don't want to submit silently.
+    if (pendingName.trim() === '') return;
+    setPendingName(cleaned);
     setSubmitState('submitting');
     if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem('pug-banger-fiesta-player-name', trimmed);
+      window.sessionStorage.setItem('pug-banger-fiesta-player-name', cleaned);
     }
-    await onSubmitScore(trimmed);
+    await onSubmitScore(cleaned);
     setSubmitState('done');
   };
 
