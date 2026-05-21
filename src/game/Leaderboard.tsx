@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { LeaderboardEntry } from '../lib/supabase';
 import type { Lang, Strings } from './i18n';
 
@@ -110,6 +111,16 @@ export function MiniLeaderboard({
 }>) {
   const t = strings.leaderboard;
   const list = entries.slice(0, limit);
+  const highlightRef = useRef<HTMLDivElement | null>(null);
+
+  // Scroll the highlighted row into view whenever it appears (e.g. right after
+  // the player submits and their row enters the list, possibly below the
+  // fold). Triggered also on `entries` change so the effect re-runs after the
+  // post-submit refresh populates the list.
+  useEffect(() => {
+    if (!highlightId || !highlightRef.current) return;
+    highlightRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [highlightId, entries]);
 
   if (error) {
     return (
@@ -130,7 +141,11 @@ export function MiniLeaderboard({
         const isYou = highlightId === entry.id;
         const badge = MEDAL[rank] ?? rank;
         return (
-          <div key={entry.id} className={`res-mini ${isYou ? 'you' : ''}`}>
+          <div
+            key={entry.id}
+            ref={isYou ? highlightRef : null}
+            className={`res-mini ${isYou ? 'you' : ''}`}
+          >
             <span className="res-mini-rank">{badge}</span>
             <span className="res-mini-name-wrap">
               <span className="res-mini-name" title={entry.player_name}>
