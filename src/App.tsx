@@ -34,7 +34,7 @@ import type { AnalogInput, GameMode, KeyboardState } from './game/types';
 
 // Flip to false to dormant the kid-friendly mode feature without removing code:
 // disables the age gate, the toggle button, and forces adult strings everywhere.
-const KID_MODE_ENABLED = false;
+const KID_MODE_ENABLED = true;
 
 const KID_FRIENDLY_STORAGE_KEY = 'pug-banger-fiesta-kid-friendly';
 const AGE_GATE_STORAGE_KEY = 'pug-banger-fiesta-age-gate-answered';
