@@ -606,9 +606,7 @@ function App() {
             activePhrase={activePhrase}
             onDashStart={playDash}
             onTag={(chainSize, inGoal) => {
-              // One point per latched pug (chain size), with the goal
-               // multiplier on top so a goal-mouth trojka/grupáč pays double.
-              const points = chainSize * (inGoal ? GOAL_SCORE_MULTIPLIER : 1);
+              const points = computeLatchPoints(chainSize, inGoal);
               let phraseText: string;
               let phraseKind: 'tag' | 'multi' | 'goal';
               if (inGoal) {
