@@ -363,3 +363,4 @@ export function PugCharacter({
 
 useGLTF.preload('/assets/models/pug-quaternius.glb');
 useGLTF.preload('/assets/models/pugMeshyJersey.glb');
+useGLTF.preload('/assets/models/pugMeshyJerseyHat.glb');

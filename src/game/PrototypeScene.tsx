@@ -20,6 +20,7 @@ import {
   NPC_FLEE_RADIUS,
   NPC_RESPAWN_DELAY,
   NPC_VARIANTS,
+  PLAYER_MODEL_URL,
   PLAYER_SPEED,
   TAG_RADIUS,
 } from './config';
@@ -753,7 +754,7 @@ export function PrototypeScene({
           <PugCharacter
             isPlayer
             actionRef={playerAction}
-            modelUrl="/assets/models/pugMeshyJersey.glb"
+            modelUrl={PLAYER_MODEL_URL}
             bodyScale={500}
             palette={{
               bodyColor: '#d9b58d',
