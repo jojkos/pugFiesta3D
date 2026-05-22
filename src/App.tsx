@@ -3,8 +3,11 @@ import { OrthographicCamera } from '@react-three/drei';
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import {
+  AGE_GATE_STORAGE_KEY,
   CAMERA_POSITION,
   GOAL_SHOUT_COOLDOWN,
+  KID_FRIENDLY_STORAGE_KEY,
+  KID_MODE_ENABLED,
   ROUND_DURATION,
   ROUND_INTRO_DELAY,
 } from './game/config';
@@ -31,13 +34,6 @@ import {
 } from './game/i18n';
 import { useLeaderboard } from './game/useLeaderboard';
 import type { AnalogInput, GameMode, KeyboardState } from './game/types';
-
-// Flip to false to dormant the kid-friendly mode feature without removing code:
-// disables the age gate, the toggle button, and forces adult strings everywhere.
-const KID_MODE_ENABLED = true;
-
-const KID_FRIENDLY_STORAGE_KEY = 'pug-banger-fiesta-kid-friendly';
-const AGE_GATE_STORAGE_KEY = 'pug-banger-fiesta-age-gate-answered';
 
 function App() {
   const [isMuted, setIsMuted] = useState(false);

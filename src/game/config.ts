@@ -32,6 +32,20 @@ export const TOUCH_DEADZONE = 0.16;
 
 export const CAMERA_POSITION = new Vector3(0, 14, 15);
 
+// Flip to false to dormant the kid-friendly mode feature without removing code:
+// disables the age gate, the toggle button, and forces adult strings everywhere.
+export const KID_MODE_ENABLED = true;
+export const KID_FRIENDLY_STORAGE_KEY = 'pug-banger-fiesta-kid-friendly';
+export const AGE_GATE_STORAGE_KEY = 'pug-banger-fiesta-age-gate-answered';
+
+// Flip to true to put the player in the trucker-cap model
+// (public/assets/models/pugMeshyJerseyHat.glb). The hatless model stays the
+// default while the cap is iterated on.
+export const HAT_ENABLED = false;
+export const PLAYER_MODEL_URL = HAT_ENABLED
+  ? '/assets/models/pugMeshyJerseyHat.glb'
+  : '/assets/models/pugMeshyJersey.glb';
+
 export const NPC_VARIANTS: NpcVariant[] = [
   {
     bodyColor: '#f2d4b6',
