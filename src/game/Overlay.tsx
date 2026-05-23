@@ -455,25 +455,6 @@ export function Overlay({
         </div>
       )}
 
-      {mode === 'menu' && (
-        <a
-          className="bmc-link"
-          href="https://buymeacoffee.com/jojkos"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Buy me a coffee"
-          title="Buy me a coffee"
-        >
-          <img
-            src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
-            alt="Buy me a coffee"
-            width={150}
-            height={42}
-            loading="lazy"
-          />
-        </a>
-      )}
-
       {mode !== 'menu' && (
         <div className="control-cluster">
           <button
