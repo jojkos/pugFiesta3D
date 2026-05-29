@@ -771,12 +771,7 @@ export function PrototypeScene({
           <Html
             position={[0, 1.6, 0]}
             center
-            // Negative range puts the overlay DOM element BEHIND the
-            // canvas (which sits at z-index auto = 0). The canvas is
-            // alpha-transparent except where 3D geometry is drawn, so
-            // the bubble shows through the empty pixels — but confetti
-            // and other 3D objects in front render over it correctly.
-            zIndexRange={[-1, -1]}
+            zIndexRange={[10, 0]}
             style={{ pointerEvents: 'none', userSelect: 'none' }}
           >
             <SpeechBubble phrase={activePhrase} />
