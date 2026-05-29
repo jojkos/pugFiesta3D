@@ -25,6 +25,12 @@ import {
   TAG_RADIUS,
 } from './config';
 import { PugCharacter, type CharacterAction } from './CharacterModels';
+import {
+  type CameraMirror,
+  type ConfettiParticle,
+  createConfettiPool,
+  spawnConfetti,
+} from './confetti';
 import { Environment } from './Environment';
 import { isNpcInGoalMouth } from './scoring';
 import type { AnalogInput, NpcState } from './types';
@@ -58,36 +64,6 @@ const BURST_COUNT = 6;
 const HITSTOP_RAMP = 0.05;
 const LATCH_FORWARD_OFFSET = 0.65;
 const LATCH_SIDE_STEP = 0.5;
-const CONFETTI_COUNT = 40;
-const CONFETTI_SPAWN_PER_GOAL = 30;
-const CONFETTI_COLORS = [
-  '#ff6fb1',
-  '#ffe066',
-  '#7be2ff',
-  '#9dff9d',
-  '#ff9ac0',
-  '#ffd76a',
-  '#b08cff',
-  '#ff8c5a',
-];
-
-type ConfettiParticle = {
-  active: boolean;
-  age: number;
-  lifetime: number;
-  x: number;
-  y: number;
-  z: number;
-  vx: number;
-  vy: number;
-  vz: number;
-  rotX: number;
-  rotY: number;
-  rotZ: number;
-  spinX: number;
-  spinY: number;
-  spinZ: number;
-};
 
 // Frame-rate-independent `lerp(current, target, alpha)`. The original alpha
 // values were tuned at 60fps; `dampAlpha(alpha, delta)` returns the equivalent
@@ -110,6 +86,9 @@ export function PrototypeScene({
   baseZoom,
   introZoomOut,
   activePhrase,
+  confettiParticlesRef,
+  confettiGroupsRef,
+  cameraMirrorRef,
 }: {
   isPlaying: boolean;
   moveInput: AnalogInput;
@@ -128,6 +107,12 @@ export function PrototypeScene({
     kind: 'tag' | 'multi' | 'goal';
     nonce: number;
   } | null;
+  // Provided by the parent so the meshes can live in a separate canvas
+  // that renders ABOVE the speech bubble overlay. Physics + spawning
+  // stay here; only the JSX mounting moved.
+  confettiParticlesRef: import('react').RefObject<ConfettiParticle[]>;
+  confettiGroupsRef: import('react').RefObject<Array<Group | null>>;
+  cameraMirrorRef: import('react').RefObject<CameraMirror>;
 }) {
   const { camera } = useThree();
   const player = useRef<Group>(null);
@@ -136,26 +121,15 @@ export function PrototypeScene({
   const npcShadows = useRef<Array<Group | null>>([]);
   const burstGroups = useRef<Array<Group | null>>([]);
   const burstRings = useRef<Array<Mesh | null>>([]);
-  const confettiGroups = useRef<Array<Group | null>>([]);
-  const confettiParticles = useRef<ConfettiParticle[]>(
-    Array.from({ length: CONFETTI_COUNT }, () => ({
-      active: false,
-      age: 0,
-      lifetime: 0,
-      x: 0,
-      y: 0,
-      z: 0,
-      vx: 0,
-      vy: 0,
-      vz: 0,
-      rotX: 0,
-      rotY: 0,
-      rotZ: 0,
-      spinX: 0,
-      spinY: 0,
-      spinZ: 0,
-    })),
-  );
+  // Aliased so the existing physics tick still reads/writes via the same
+  // identifiers — actual storage lives in the parent so the meshes can be
+  // mounted in a separate canvas above the speech bubble.
+  const confettiGroups = confettiGroupsRef;
+  const confettiParticles = confettiParticlesRef;
+  // Lazy-init the parent-owned particle pool if the parent didn't fill it.
+  if (confettiParticles.current.length === 0) {
+    confettiParticles.current = createConfettiPool();
+  }
   const playerState = useRef<PlayerState>(createPlayerState());
   const npcStates = useRef<NpcState[]>(
     Array.from({ length: NPC_COUNT }, (_, index) =>
@@ -562,6 +536,22 @@ export function PrototypeScene({
       }
     }
 
+    // Mirror live camera state to the confetti overlay canvas so its
+    // camera stays in lock-step with this one (pan + zoom). Without this,
+    // confetti would visibly drift away from the rest of the scene when
+    // the camera moves.
+    const mirror = cameraMirrorRef.current;
+    if (mirror) {
+      mirror.posX = camera.position.x;
+      mirror.posY = camera.position.y;
+      mirror.posZ = camera.position.z;
+      mirror.focusX = cameraFocus.current.x;
+      mirror.focusZ = cameraFocus.current.z;
+      if ('zoom' in camera && typeof camera.zoom === 'number') {
+        mirror.zoom = camera.zoom;
+      }
+    }
+
     if (player.current) {
       const dashProgress =
         playerData.dashTime > 0 ? 1 - playerData.dashTime / DASH_DURATION : 0;
@@ -840,24 +830,11 @@ export function PrototypeScene({
         </group>
       ))}
 
-      {Array.from({ length: CONFETTI_COUNT }, (_, index) => (
-        <group
-          key={`confetti-${index}`}
-          ref={(node) => {
-            confettiGroups.current[index] = node;
-          }}
-          visible={false}
-        >
-          <mesh>
-            <boxGeometry args={[0.16, 0.025, 0.22]} />
-            <meshStandardMaterial
-              color={CONFETTI_COLORS[index % CONFETTI_COLORS.length]}
-              roughness={0.55}
-              metalness={0.05}
-            />
-          </mesh>
-        </group>
-      ))}
+      {/* Confetti meshes are mounted in a separate canvas overlay
+          (ConfettiOverlay) so they can render above the speech bubble
+          HTML overlay. Physics + spawning still run here in this scene's
+          useFrame; transforms are written to confettiGroups (parent-owned
+          refs that point at the overlay canvas's group objects). */}
     </>
   );
 }
@@ -946,36 +923,6 @@ function latchNpc(
   npc.dirX = playerData.facingX;
   npc.dirZ = playerData.facingZ;
   actions[index] = 'react';
-}
-
-function spawnConfetti(
-  particles: ConfettiParticle[],
-  x: number,
-  z: number,
-) {
-  let spawned = 0;
-  for (const p of particles) {
-    if (spawned >= CONFETTI_SPAWN_PER_GOAL) break;
-    if (p.active) continue;
-    p.active = true;
-    p.age = 0;
-    p.lifetime = 2 + Math.random() * 0.9;
-    p.x = x + (Math.random() - 0.5) * 0.5;
-    p.y = 0.6 + Math.random() * 0.4;
-    p.z = z + (Math.random() - 0.5) * 0.5;
-    const angle = Math.random() * Math.PI * 2;
-    const horiz = 1.4 + Math.random() * 2.6;
-    p.vx = Math.cos(angle) * horiz;
-    p.vz = Math.sin(angle) * horiz;
-    p.vy = 3.2 + Math.random() * 2.6;
-    p.rotX = Math.random() * Math.PI * 2;
-    p.rotY = Math.random() * Math.PI * 2;
-    p.rotZ = Math.random() * Math.PI * 2;
-    p.spinX = (Math.random() - 0.5) * 14;
-    p.spinY = (Math.random() - 0.5) * 14;
-    p.spinZ = (Math.random() - 0.5) * 14;
-    spawned += 1;
-  }
 }
 
 function createPlayerState(): PlayerState {
