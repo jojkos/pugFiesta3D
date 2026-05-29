@@ -790,6 +790,8 @@ export function Overlay({
                 <span>{strings.menu.bestSoFar(leaderboardTop)}</span>
               )}
             </div>
+
+            <p className="menu-credit">made by Wizy</p>
           </section>
 
           {helpOpen && (
