@@ -72,6 +72,11 @@ export function useArcadeAudio(muted: boolean) {
     source: AudioBufferSourceNode;
     gain: GainNode;
   } | null>(null);
+  // A looping silent HTMLAudioElement kept alive after the first gesture so
+  // iOS Safari keeps the page's audio session in the "playback" category.
+  // Without it, Web Audio output runs in the "ambient" category and gets
+  // muted whenever the user has the physical silent switch flipped on.
+  const silentPrimerRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     mutedRef.current = muted;
@@ -125,6 +130,15 @@ export function useArcadeAudio(muted: boolean) {
       // Returning a promise we don't await is fine; the resume itself happens
       // synchronously inside the gesture.
       void bus.context.resume();
+    }
+    // Re-kick the silent primer if iOS paused it while the tab was hidden.
+    // Called from a real gesture, so play() is allowed.
+    const primer = silentPrimerRef.current;
+    if (primer && primer.paused) {
+      const promise = primer.play();
+      if (promise !== undefined) {
+        promise.catch(() => {});
+      }
     }
   }, [createBus]);
 
@@ -532,15 +546,30 @@ export function useArcadeAudio(muted: boolean) {
       // Synchronous resume() so iOS counts this as gesture-activated.
       void bus.context.resume();
     }
-    // Silent HTML5 Audio playback trick to permanently whitelist HTMLAudioElements on iOS
-    try {
-      const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA');
-      const playPromise = silentAudio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {});
+    // Start (and keep alive) a looping silent HTMLAudioElement so iOS Safari
+    // promotes the audio session from "ambient" to "playback". Without this,
+    // Web Audio output is silent whenever the user's physical silent switch
+    // is on. The 2-byte data-URL WAV trick stopped working around iOS 17 —
+    // a real (~0.5s) silent file played in a loop is the reliable fix.
+    if (!silentPrimerRef.current) {
+      try {
+        const primer = new Audio('/assets/audio/silent.wav');
+        primer.loop = true;
+        primer.volume = 0;
+        primer.preload = 'auto';
+        // iOS only accepts this gesture-coupled play() — if it rejects we
+        // silently drop the reference and try again on the next gesture.
+        const promise = primer.play();
+        if (promise !== undefined) {
+          promise.catch(() => {
+            silentPrimerRef.current = null;
+          });
+        }
+        silentPrimerRef.current = primer;
+      } catch {
+        // Best-effort — Web Audio still works on devices not affected by the
+        // ambient-category bug (desktop, Android, iPad without silent switch).
       }
-    } catch {
-      // Swallow error - best-effort fallback
     }
     if (activeMusicRef.current) {
       stopActiveMusic(0);
@@ -581,6 +610,12 @@ export function useArcadeAudio(muted: boolean) {
       if (bus) {
         void bus.context.close().catch(() => {});
         busRef.current = null;
+      }
+      const primer = silentPrimerRef.current;
+      if (primer) {
+        primer.pause();
+        primer.src = '';
+        silentPrimerRef.current = null;
       }
     };
   }, [stopMusic]);
