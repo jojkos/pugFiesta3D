@@ -61,6 +61,11 @@ body {
   width: 100%;
   height: 100dvh;
   overflow: hidden;
+  /* Painted here (rather than via <color attach="background"> inside the
+     Canvas) so the WebGL canvas can stay alpha-transparent and the speech
+     bubble's <Html> overlay can sit BEHIND the canvas in z-order. Without
+     this, 3D content like confetti would always be hidden by the overlay. */
+  background: #fde6d0;
 }
 
 .scene-shell > canvas {

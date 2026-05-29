@@ -559,7 +559,11 @@ function App() {
       <RotateGate strings={strings} />
       <div className="scene-shell">
         <Canvas dpr={[1, 1.75]} shadows>
-          <color attach="background" args={['#fde6d0']} />
+          {/* Scene cream backdrop is painted by .scene-shell in CSS so the
+              WebGL canvas can stay alpha-transparent. That lets us place the
+              speech bubble's <Html> overlay BEHIND the canvas — 3D content
+              (confetti, players) renders over it instead of being hidden by
+              the overlay. */}
           <fog attach="fog" args={['#a8d486', 60, 120]} />
           <OrthographicCamera
             makeDefault
