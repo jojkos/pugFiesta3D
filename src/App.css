@@ -493,6 +493,15 @@ body {
   flex-wrap: wrap;
 }
 
+.menu-credit {
+  margin-top: 8px;
+  text-align: right;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-mute);
+  opacity: 0.7;
+}
+
 .menu-toolbar {
   position: absolute;
   top: 12px;
