@@ -789,9 +789,8 @@ export function Overlay({
               {leaderboardTop > 0 && (
                 <span>{strings.menu.bestSoFar(leaderboardTop)}</span>
               )}
+              <span className="menu-credit">made by Wizy</span>
             </div>
-
-            <p className="menu-credit">made by Wizy</p>
           </section>
 
           {helpOpen && (

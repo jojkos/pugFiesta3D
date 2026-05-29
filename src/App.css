@@ -494,8 +494,7 @@ body {
 }
 
 .menu-credit {
-  margin-top: 8px;
-  text-align: right;
+  margin-left: auto;
   font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--ink-mute);
