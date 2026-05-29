@@ -745,7 +745,10 @@ export function PrototypeScene({
       <group ref={playerShadow}>
         <mesh receiveShadow rotation-x={-Math.PI / 2}>
           <circleGeometry args={[0.84, 24]} />
-          <meshStandardMaterial color="#000000" transparent opacity={0.15} />
+          {/* depthWrite off: fake blob shadows must not occlude flat ground
+              decals like the center-circle logo (else the logo gets
+              depth-rejected and grass shows through). */}
+          <meshStandardMaterial color="#000000" transparent opacity={0.15} depthWrite={false} />
         </mesh>
       </group>
 
@@ -791,6 +794,7 @@ export function PrototypeScene({
                   color="#000000"
                   transparent
                   opacity={0.12}
+                  depthWrite={false}
                 />
               </mesh>
             </group>

@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Text } from '@react-three/drei';
+import { Suspense, useMemo } from 'react';
+import { Text, useTexture } from '@react-three/drei';
 import { DoubleSide } from 'three';
 import {
   FIELD_HALF_X,
@@ -31,6 +31,9 @@ export function Environment({
     <group>
       <PitchGround />
       <PitchLines />
+      <Suspense fallback={null}>
+        <CenterLogo />
+      </Suspense>
       <Goal side={-1} />
       <Goal side={1} />
       <Frisbee position={[-9.1, 0.025, 1.2]} rotation={0.4} />
@@ -94,10 +97,6 @@ function PitchLines() {
         <planeGeometry args={[shortLen, LINE_WIDTH]} />
         <meshBasicMaterial color={lineColor} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, LINE_Y, 0]}>
-        <ringGeometry args={[1.6, 1.72, 48]} />
-        <meshBasicMaterial color={lineColor} />
-      </mesh>
       <mesh
         rotation={[-Math.PI / 2, 0, -Math.PI / 2]}
         position={[-FIELD_HALF_X, LINE_Y, 0]}
@@ -133,6 +132,29 @@ function PitchLines() {
     </group>
   );
 }
+
+// Logo painted flat at the center spot, hockey center-ice style. Sized so the
+// round badge fills the old center circle; the badge only fills ~76% of the
+// PNG's width, so the plane is scaled up to compensate. Sits just below the
+// pitch lines (LINE_Y) so the halfway line still draws over it, and above the
+// pitch ground (y=0) so it reads on the green.
+function CenterLogo() {
+  const texture = useTexture('/assets/images/logo.png');
+  const planeSize = 4.5;
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, LINE_Y - 0.003, 0]}>
+      <planeGeometry args={[planeSize, planeSize]} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
+useTexture.preload('/assets/images/logo.png');
 
 function Goal({ side }: { readonly side: -1 | 1 }) {
   const postColor = '#b3b7bb';
