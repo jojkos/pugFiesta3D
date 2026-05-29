@@ -35,15 +35,22 @@ type Team = {
 // When accent is missing, the jersey is solid (Jersey2 mirrors Jersey).
 const TEAMS: readonly Team[] = [
   { id: 'psidevky',   label: 'Psí děvky',    primary: '#ffffff', accent: '#033e8f' },
-  { id: 'epix',       label: 'Epix',         primary: '#9e2ac2', accent: '#f3c526' },
+  { id: 'epix',       label: 'Epix',         primary: '#9e2ac2', accent: '#ffd334' },
   { id: 'odpad',      label: 'Odpad',        primary: '#ff002b' },
-  { id: 'centimetry', label: 'Centimetry',   primary: '#ff8a3d' },
+  { id: 'centimetry', label: 'Centimetry',   primary: '#f97e2c' },
   { id: 'ketutus',    label: 'Ketutus',      primary: '#1a1a1a', accent: '#f3c526' },
   { id: 'diy',        label: 'DIY',          primary: '#791927' },
   { id: 'tamara',     label: 'Tamara',       primary: '#f838a8' },
   { id: 'jzm',        label: 'JZM',          primary: '#034c2b' },
   { id: 'tichu',      label: 'Díra v tichu', primary: '#63b8f9' },
   { id: 'hrana',      label: 'Hrana',        primary: '#f5c842', accent: '#cdbfa2' },
+  { id: 'alfons',     label: 'Alfons Evžen Honimír', primary: '#000000' },
+  { id: 'docpoctu',   label: 'Do počtu',     primary: '#000000' },
+  { id: 'elka',       label: 'eLka',         primary: '#ffffff' },
+  { id: 'kuleprask',  label: 'Kuleprásk',    primary: '#ffffff', accent: '#ff9d00' },
+  { id: 'sladke',     label: 'Sladké potěšení', primary: '#5ce971' },
+  { id: 'vitutus',    label: 'Vitutus',      primary: '#1a1a1a', accent: '#f3c526' },
+  { id: 'valcovny',   label: 'Válcovny',     primary: '#fef854' },
 ];
 
 function eqHex(a: string, b: string) {
