@@ -128,7 +128,7 @@ const cs = {
     'hlídej si ocas, jdu na věc',
     'mrskej se ty čubičko!',
     'štěknem si',
-    'e-pes rádes',
+    'epes rádes',
   ],
 };
 
