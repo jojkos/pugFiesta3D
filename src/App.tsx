@@ -64,9 +64,6 @@ function App() {
     if (stored && (SUPPORTED_LANGS as string[]).includes(stored)) {
       return stored as Lang;
     }
-    const browser = globalThis.navigator?.language?.toLowerCase() ?? '';
-    if (browser.startsWith('cs')) return 'cs';
-    if (browser.startsWith('en')) return 'en';
     return DEFAULT_LANG;
   });
 
