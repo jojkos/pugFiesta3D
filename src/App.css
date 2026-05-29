@@ -69,6 +69,13 @@ body {
   height: 100%;
 }
 
+/* The confetti overlay sits ABOVE the canvas + speech-bubble HTML so the
+   confetti pieces render on top of the bubble. It's pointer-events:none
+   and alpha-transparent, so it doesn't block input or hide the scene. */
+.confetti-canvas {
+  pointer-events: none;
+}
+
 /* ─────────── Top-right controls ─────────── */
 
 .control-cluster {

@@ -15,6 +15,15 @@ import { computeLatchPoints } from './game/scoring';
 import { clampInput } from './game/input';
 import { Overlay } from './game/Overlay';
 import { PrototypeScene } from './game/PrototypeScene';
+import { ConfettiOverlay } from './game/ConfettiOverlay';
+import {
+  createCameraMirror,
+  createConfettiGroupsArray,
+  createConfettiPool,
+  type CameraMirror,
+  type ConfettiParticle,
+} from './game/confetti';
+import type { Group } from 'three';
 import { TouchControls } from './game/TouchControls';
 import { useArcadeAudio } from './game/useArcadeAudio';
 import {
@@ -133,6 +142,16 @@ function App() {
   const [roundEnding, setRoundEnding] = useState(false);
   const [joystick, setJoystick] = useState<AnalogInput>({ x: 0, y: 0 });
   const [cameraZoom, setCameraZoom] = useState(() => computeCameraZoom());
+
+  // Confetti state is owned at this level so the meshes can be mounted in
+  // a SEPARATE transparent canvas (ConfettiOverlay) layered above the
+  // speech bubble overlay. Physics + spawning still happen inside
+  // PrototypeScene's useFrame — these refs just connect the two canvases.
+  const confettiParticlesRef = useRef<ConfettiParticle[]>(createConfettiPool());
+  const confettiGroupsRef = useRef<Array<Group | null>>(
+    createConfettiGroupsArray(),
+  );
+  const cameraMirrorRef = useRef<CameraMirror>(createCameraMirror());
 
   useEffect(() => {
     const update = () => setCameraZoom(computeCameraZoom());
@@ -627,8 +646,18 @@ function App() {
               setScore((value) => value + points);
             }}
             roundId={roundId}
+            confettiParticlesRef={confettiParticlesRef}
+            confettiGroupsRef={confettiGroupsRef}
+            cameraMirrorRef={cameraMirrorRef}
           />
         </Canvas>
+
+        <ConfettiOverlay
+          particlesRef={confettiParticlesRef}
+          groupsRef={confettiGroupsRef}
+          cameraMirrorRef={cameraMirrorRef}
+          baseZoom={cameraZoom}
+        />
 
         <Overlay
           countdown={countdown}
