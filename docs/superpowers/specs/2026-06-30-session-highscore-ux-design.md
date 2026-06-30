@@ -2,9 +2,11 @@
 
 **Date:** 2026-06-30
 **Project:** pugBangerFiesta3D
-**Status:** Approved design, revised after design-review validation (UX-flow, visual/interaction, interaction-logic agents)
+**Status:** Approved design — all open questions resolved. Ready for implementation planning.
 
-> **v2 changes:** folds in three parallel design reviews. Major revisions: the game-over card is now one fixed-geometry layout with a single swappable status slot (not three layouts); the first-run name entry stays in the existing submit slot rather than displacing the score hero; a celebration hierarchy separates global-record from session-best; `sessionBest` re-baselines on a post-round rename; the auto-save effect gets a one-shot guard. Items needing final confirmation are tagged **⚠ CONFIRM**.
+> **v2 changes:** folds in three parallel design reviews. Major revisions: the game-over card is now one fixed-geometry layout with a single swappable status slot (not three layouts); the first-run name entry stays in the existing submit slot rather than displacing the score hero; a celebration hierarchy separates global-record from session-best; `sessionBest` re-baselines on a post-round rename; the auto-save effect gets a one-shot guard.
+>
+> **Resolved (confirmed by owner):** (1) rename re-baselines `sessionBest` — **adopted**; (2) the State A "save your run first?" nudge — **wanted, in scope**; (3) the rename server endpoint + submit-dedupe-returns-fresh-row-id — **deferred**, blocked on the parallel security workstream (see Deferred section). Tags below now read **DEFERRED** rather than ⚠ CONFIRM.
 
 ## Problem
 
@@ -23,8 +25,10 @@ Type a name **once per session**; after that the game **automatically protects t
 Writes are **server-only**. Each round calls `startSession()` to fetch a **single-use token** ([useLeaderboard.ts:48-56](../../../src/game/useLeaderboard.ts#L48-L56)); `submit()` posts `{token, name, score}` to `/api/submit-score`, then nulls the token ([useLeaderboard.ts:61-90](../../../src/game/useLeaderboard.ts#L61-L90)). RLS denies direct client writes. This is actively being built in a **parallel workstream** and is mostly out of scope here, but two facts constrain the client design and one is an open dependency:
 
 - **One token per round, consumed on first successful submit.** Each new round refreshes it via `startSession`. → Any given game-over can write **at most once** (auto-save *or* manual save, never both — they are mutually exclusive states, so this is fine). → A double-firing auto-save would hit `!token` and surface a spurious "No active game session". The one-shot guard below prevents this.
-- **⚠ CONFIRM (parallel workstream):** Rename writes too, so it needs a **server endpoint** (`/api/rename-score` or similar) and an **authorization story** — the round token is already consumed at submit time, so rename has no token to present. How rename is authorized server-side is an open question owned by the backend workstream. The client contract here: `rename(rowId, newName) → ok | error`.
-- **⚠ CONFIRM (parallel workstream):** the submit endpoint's dedupe should return the **freshly-inserted row's id** (not the earliest matching `name+score` row), otherwise `submittedEntryId` can point at a *different player's* row and a later rename would clobber it.
+- **DEFERRED (parallel workstream):** Rename writes too, so it needs a **server endpoint** (`/api/rename-score` or similar) and an **authorization story** — the round token is already consumed at submit time, so rename has no token to present. How rename is authorized server-side is an open question owned by the backend workstream. The client contract here: `rename(rowId, newName) → ok | error`.
+- **DEFERRED (parallel workstream):** the submit endpoint's dedupe should return the **freshly-inserted row's id** (not the earliest matching `name+score` row), otherwise `submittedEntryId` can point at a *different player's* row and a later rename would clobber it.
+
+> Both items above are **blocked on the parallel security workstream** and tracked in the Deferred section at the end. The client-side rename wiring is built behind this contract; the live `rename()` call is gated until the endpoint + auth land.
 
 ## Persistence model
 
@@ -56,7 +60,7 @@ Kept distinct, and the visual treatment is **tiered so two win-signals never sta
 
 - The status slot renders a **visually promoted** entry form (bordered/elevated `.res-submit.is-primary`, eyebrow "save your run", input **autofocused**, **Enter submits**, button styled like `.res-btn-prim`).
 - **Mobile:** the Save button is a large primary tap target — discoverability does not depend on Enter (autofocus often won't raise the soft keyboard).
-- "Again"/"Menu" stay clickable but visually secondary. If the player leaves with score > 0 unsaved, show a one-line non-blocking nudge ("save your run first?") — we don't hard-trap them. **⚠ CONFIRM** this nudge is wanted.
+- "Again"/"Menu" stay clickable but visually secondary. If the player leaves with score > 0 unsaved, show a one-line non-blocking nudge ("save your run first?") — we don't hard-trap them. (Confirmed in scope.)
 - On success: store name, set `sessionBest = score`, set `submittedEntryId` + `sessionBestEntryId`.
 
 ### State B — Returning player, new session best (`name known && score > sessionBest`)
@@ -84,7 +88,7 @@ Rename **updates an existing board row in place** — never forks a new row. One
 
 Targeting + `sessionBest` rules:
 
-- **Post-round rename** (the State B/C control — the handover case): renames **this game-over's row** (`submittedEntryId`) and **re-baselines `sessionBest` to that row's score**. **⚠ CONFIRM — this reverses v1's "rename never touches sessionBest".** Rationale: when a friend takes the phone and renames, the new identity must not inherit the previous player's `sessionBest`, or every genuine best they score reads as State C and never auto-saves. Re-baselining to the just-saved run's score fixes this and also leaves a same-player typo-fix unchanged (the targeted row *is* their best).
+- **Post-round rename** (the State B/C control — the handover case): renames **this game-over's row** (`submittedEntryId`) and **re-baselines `sessionBest` to that row's score**. (Confirmed — supersedes v1's "rename never touches sessionBest".) Rationale: when a friend takes the phone and renames, the new identity must not inherit the previous player's `sessionBest`, or every genuine best they score reads as State C and never auto-saves. Re-baselining to the just-saved run's score fixes this and also leaves a same-player typo-fix unchanged (the targeted row *is* their best).
 - **Menu rename** (typo-fix case): renames `sessionBestEntryId`, leaves `sessionBest` unchanged. If nothing has been saved yet this session, it only sets the name for future saves — copy disambiguates: "change name (applies to your next run)".
 
 ## Edge cases
@@ -107,6 +111,16 @@ Targeting + `sessionBest` rules:
 - **`src/game/useLeaderboard.ts`** — add `rename(rowId, newName)` calling the server endpoint (parallel-workstream dependency).
 - **`src/game/i18n.ts`** — new strings (cs + en + kid-friendly spreads): `enterNamePrompt`, `savedNewBest` ("your new best!"), `savedToBoard`, `saveAnyway`, `saved`, `sessionBestLabel`, `playingAs`, `changeName`, `changeNameFuture`, `renameError`, `saveFirstNudge`.
 - **`src/App.css`** — fixed-height status slot; tiered celebration (gold pill unchanged for record; quiet checkmark + row-pulse keyframes for session best); `prefers-reduced-motion` guards; `.menu-identity`; shared `.name-edit`.
+
+## Deferred — blocked on the parallel security workstream
+
+Rename's **backend** is not built here; the client is built to a contract and the live call stays gated until these land. Revisit once the parallel session finishes its security changes.
+
+- [ ] **`/api/rename-score` endpoint** — accepts a row id + new name, validates authorization, updates `player_name`. Open question: how rename is authorized given the round's single-use token is consumed at submit time (per-row edit token? short-lived rename grant returned by `/api/submit-score`? something else).
+- [ ] **`/api/submit-score` returns the freshly-inserted row id** (not the earliest `name+score` dedupe match), so `submittedEntryId` / `sessionBestEntryId` reference rows this session actually created and rename can't clobber a stranger's row.
+- [ ] Once both land: un-gate `useLeaderboard.rename()` and enable the `.name-edit` controls' live write path.
+
+The rest of the spec (session identity, auto-save, three-state card, celebration hierarchy, menu identity line, the State A nudge) has **no backend dependency** and can be implemented now; rename's UI is built but its write call no-ops/falls back until un-gated.
 
 ## Out of scope
 
