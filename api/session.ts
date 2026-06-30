@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID } from 'node:crypto';
-import { getAdminSupabase } from './_lib/supabaseAdmin';
-import { signToken } from './_lib/scoreToken';
+import { getAdminSupabase } from './_lib/supabaseAdmin.js';
+import { signToken } from './_lib/scoreToken.js';
 
 /**
  * POST /api/session — issue a start-of-game token.

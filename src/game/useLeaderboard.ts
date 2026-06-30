@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getSupabase, type LeaderboardEntry } from '../lib/supabase';
+import { postScore, requestSessionToken } from './leaderboardApi';
 
 const TABLE = 'leaderboard';
 
@@ -46,47 +47,34 @@ export function useLeaderboard(topN?: number, refreshKey = 0): LeaderboardState 
   }, [topN]);
 
   const startSession = useCallback(async () => {
-    try {
-      const res = await fetch('/api/session', { method: 'POST' });
-      const data = res.ok ? await res.json().catch(() => null) : null;
-      tokenRef.current = typeof data?.token === 'string' ? data.token : null;
-    } catch {
-      tokenRef.current = null;
-    }
+    tokenRef.current = await requestSessionToken(fetch);
   }, []);
 
   // Writes go through the trusted endpoint — the browser can no longer insert
   // directly (RLS denies it). The server validates the token, the elapsed time,
   // and the score before writing.
+  //
+  // Note: this deliberately does NOT touch `error` (the read/leaderboard error).
+  // Submit failures surface through the return value (null) so the caller can
+  // show its own message — otherwise a failed save would blank out the
+  // leaderboard, which shares that state.
   const submit = useCallback<LeaderboardState['submit']>(
     async ({ name, score }) => {
+      // If the round-start session fetch failed, try once more now so a submit
+      // (and any retry) actually fires a request instead of dead-ending on a
+      // missing token.
+      if (!tokenRef.current) {
+        await startSession();
+      }
       const token = tokenRef.current;
-      if (!token) {
-        setError('No active game session');
-        return null;
-      }
-      setError(null);
-      try {
-        const res = await fetch('/api/submit-score', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, name, score }),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          setError(data?.error ?? 'Could not submit score');
-          return null;
-        }
-        const { entry } = await res.json();
-        tokenRef.current = null; // single-use; force a new session next round
-        await refresh();
-        return (entry ?? null) as LeaderboardEntry | null;
-      } catch {
-        setError('Network error submitting score');
-        return null;
-      }
+      if (!token) return null;
+      const entry = await postScore(fetch, { token, name, score });
+      if (!entry) return null;
+      tokenRef.current = null; // single-use; force a new session next round
+      await refresh();
+      return entry;
     },
-    [refresh],
+    [refresh, startSession],
   );
 
   useEffect(() => {
