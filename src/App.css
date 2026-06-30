@@ -1742,8 +1742,10 @@ body {
   display: flex;
   gap: 6px;
   align-items: center;
-  /* Nested flex: allow it to shrink so the input (min-width:0) actually gives. */
+  /* Nested flex: allow it to shrink so the input (min-width:0) actually gives,
+     and wrap as a hard guarantee against horizontal overflow in any layout. */
   min-width: 0;
+  flex-wrap: wrap;
 }
 .res-submit-btn.is-primary {
   background: linear-gradient(135deg, var(--warm-1), var(--warm-2));
