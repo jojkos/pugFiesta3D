@@ -1454,6 +1454,16 @@ body {
   animation: panelIn 320ms cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
+/* When the card is taller than the viewport, flex must take the height back
+   from SOMETHING. Pin every direct child at its natural height so the form,
+   stats, error/nudge messages and action buttons can never be crushed into one
+   another — only the leaderboard (.res-side, flex:1 1 auto below) is allowed to
+   shrink and scroll internally to absorb the difference. This is the real fix
+   for the game-over overlap: the input row was never the problem. */
+.res > * {
+  flex-shrink: 0;
+}
+
 .res-eye {
   margin: 0;
   font-size: 10px;
@@ -1739,13 +1749,18 @@ body {
   color: var(--accent);
 }
 .res-submit-row {
-  display: flex;
+  /* "Fill + fixed" row: the input takes the remaining space and may shrink all
+     the way to zero (minmax(0, 1fr)); the button keeps its intrinsic width
+     (auto). A grid track with a 0 minimum can never exceed its container, so
+     this holds in EVERY layout context — the single-column flex card AND the
+     two-column grid card (@container min-width:460px), at any width. The old
+     flex version needed a fragile min-width:0 ancestor chain plus flex-wrap and
+     still overflowed inside the grid track; grid makes overflow structurally
+     impossible. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
   align-items: center;
-  /* Nested flex: allow it to shrink so the input (min-width:0) actually gives,
-     and wrap as a hard guarantee against horizontal overflow in any layout. */
-  min-width: 0;
-  flex-wrap: wrap;
 }
 .res-submit-btn.is-primary {
   background: linear-gradient(135deg, var(--warm-1), var(--warm-2));
