@@ -269,6 +269,7 @@ export function Overlay({
   playerName,
   sessionBest,
   autoSaveStatus,
+  onRetrySave,
   onRename,
 }: Readonly<{
   countdown: number | null;
@@ -303,7 +304,9 @@ export function Overlay({
   onAgeGateAnswer: (isOver15: boolean) => void;
   playerName: string;
   sessionBest: number;
-  autoSaveStatus: 'idle' | 'saving' | 'done';
+  autoSaveStatus: 'idle' | 'saving' | 'done' | 'error';
+  /** Retry a failed auto-save of the session best. */
+  onRetrySave: () => void;
   onRename: (newName: string, source: 'round' | 'menu') => void;
 }>) {
   const [pendingName, setPendingName] = useState('');
@@ -1117,17 +1120,32 @@ export function Overlay({
                 </button>
               );
 
-              // State B — auto-saved (or saving) new session best.
+              // State B — auto-saving / saved / failed (new session best).
               if (autoSaveStatus !== 'idle') {
                 return (
                   <div className="res-status res-status-saved">
-                    {autoSaveStatus === 'saving' ? (
+                    {autoSaveStatus === 'saving' && (
                       <p className="res-saving">{strings.leaderboard.submitting}</p>
-                    ) : (
+                    )}
+                    {autoSaveStatus === 'done' && (
                       <p className="res-saved">
                         <span className="res-saved-check" aria-hidden="true">✓</span>
                         {strings.results.savedToBoard(playerName)}
                       </p>
+                    )}
+                    {autoSaveStatus === 'error' && (
+                      <>
+                        <p className="res-submit-error" role="alert">
+                          {strings.leaderboard.submitFailed}
+                        </p>
+                        <button
+                          type="button"
+                          className="res-save-anyway"
+                          onClick={onRetrySave}
+                        >
+                          {strings.leaderboard.retry}
+                        </button>
+                      </>
                     )}
                     {autoSaveStatus === 'done' && renameAffordance}
                   </div>
