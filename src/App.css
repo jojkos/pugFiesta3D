@@ -1680,6 +1680,8 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-family: var(--ui-font);
+  /* The input shrinks (min-width:0); the button keeps its label. */
+  flex-shrink: 0;
 }
 
 .res-submit-btn:disabled {
@@ -1710,6 +1712,9 @@ body {
   gap: 6px;
   min-height: 64px;
   justify-content: center;
+  /* Grid/flex item in column 1 — allow it to shrink to its track instead of
+     forcing the card wider. */
+  min-width: 0;
 }
 
 .res-submit.is-primary {
@@ -1721,6 +1726,9 @@ body {
   background: var(--paper-2);
   border: 1px solid var(--line-strong);
   border-radius: 14px;
+  /* As a grid item its default min-width:auto would refuse to shrink and push
+     the input+button row past the card edge. */
+  min-width: 0;
 }
 .res-submit-eye {
   margin: 0;
@@ -1734,6 +1742,8 @@ body {
   display: flex;
   gap: 6px;
   align-items: center;
+  /* Nested flex: allow it to shrink so the input (min-width:0) actually gives. */
+  min-width: 0;
 }
 .res-submit-btn.is-primary {
   background: linear-gradient(135deg, var(--warm-1), var(--warm-2));
