@@ -42,6 +42,13 @@ import {
   type Lang,
 } from './game/i18n';
 import { useLeaderboard } from './game/useLeaderboard';
+import {
+  shouldAutoSave,
+  nextSessionBest,
+  loadSessionIdentity,
+  persistPlayerName,
+  persistSessionBest,
+} from './game/highscoreSession';
 import type { AnalogInput, GameMode, KeyboardState } from './game/types';
 
 function App() {
@@ -164,6 +171,19 @@ function App() {
     };
   }, []);
   const [submittedEntryId, setSubmittedEntryId] = useState<string | null>(null);
+  const initialIdentity =
+    globalThis.window === undefined
+      ? { playerName: '', sessionBest: 0, sessionBestEntryId: null as string | null }
+      : loadSessionIdentity(globalThis.sessionStorage);
+  const [playerName, setPlayerName] = useState(initialIdentity.playerName);
+  const [sessionBest, setSessionBest] = useState(initialIdentity.sessionBest);
+  const [sessionBestEntryId, setSessionBestEntryId] = useState<string | null>(
+    initialIdentity.sessionBestEntryId,
+  );
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'done'>('idle');
+  // One-shot guard: holds the roundId we already auto-saved, so an Overlay
+  // remount while mode === 'gameOver' can't fire the save twice.
+  const autoSavedRoundRef = useRef<number | null>(null);
   const {
     entries: leaderboardEntries,
     loading: leaderboardLoading,
@@ -473,6 +493,34 @@ function App() {
     return () => window.clearTimeout(timeoutId);
   }, [roundEnding]);
 
+  // Auto-save a new session best the moment we enter gameOver. Depends only on
+  // `mode` — score/sessionBest/playerName are already final by the 1500ms hold.
+  // The synchronous ref write is the one-shot guard (mirrors handleSubmit's
+  // submitState flip-before-await).
+  useEffect(() => {
+    if (mode !== 'gameOver') return;
+    if (autoSavedRoundRef.current === roundId) return;
+    if (!shouldAutoSave({ hasName: playerName !== '', score, sessionBest })) return;
+    autoSavedRoundRef.current = roundId;
+    setAutoSaveStatus('saving');
+    void (async () => {
+      const entry = await submitLeaderboard({ name: playerName, score });
+      if (entry) {
+        setSubmittedEntryId(entry.id);
+        setSessionBest((prev) => nextSessionBest(prev, score));
+        setSessionBestEntryId(entry.id);
+        if (globalThis.window !== undefined) {
+          persistSessionBest(globalThis.sessionStorage, score, entry.id);
+        }
+        setAutoSaveStatus('done');
+      } else {
+        autoSavedRoundRef.current = null; // allow a retry next qualifying run
+        setAutoSaveStatus('idle');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
   useEffect(() => {
     if (mode !== 'playing' || paused || countdown !== null || startingRound) {
       return;
@@ -565,6 +613,7 @@ function App() {
     // forget — it isn't needed until the results screen ~45s later).
     void startLeaderboardSession();
     setScore(0);
+    setAutoSaveStatus('idle');
     setTimeLeft(ROUND_DURATION);
     setJoystick({ x: 0, y: 0 });
     setDashNonce(0);
@@ -723,15 +772,51 @@ function App() {
           leaderboardEntries={leaderboardEntries}
           leaderboardLoading={leaderboardLoading}
           leaderboardError={leaderboardError}
-          highlightedEntryId={submittedEntryId}
+          highlightedEntryId={sessionBestEntryId ?? submittedEntryId}
+          playerName={playerName}
+          sessionBest={sessionBest}
+          autoSaveStatus={autoSaveStatus}
           onSubmitScore={async (name) => {
             if (score <= 0) return false;
             const entry = await submitLeaderboard({ name, score });
-            if (entry) {
-              setSubmittedEntryId(entry.id);
-              return true;
+            if (!entry) return false;
+            setSubmittedEntryId(entry.id);
+            setPlayerName(name);
+            if (globalThis.window !== undefined) {
+              persistPlayerName(globalThis.sessionStorage, name);
             }
-            return false;
+            // First save or a manual save that happens to beat the best
+            // re-baselines the session best; a sub-best "save anyway" does not.
+            if (score > sessionBest) {
+              setSessionBest(score);
+              setSessionBestEntryId(entry.id);
+              if (globalThis.window !== undefined) {
+                persistSessionBest(globalThis.sessionStorage, score, entry.id);
+              }
+            }
+            return true;
+          }}
+          onRename={(newName: string, source: 'round' | 'menu') => {
+            // `source: 'round'` is the post-round handover — re-baseline the
+            // session best to THIS run's score so the new player isn't stuck in
+            // the "not a new best" state, and target this run's row.
+            // `source: 'menu'` is a typo-fix — name only, target the best row,
+            // and leave sessionBest UNCHANGED (menu `score` is stale).
+            // The remote row relabel is gated until the rename endpoint ships
+            // (added in Task 8).
+            setPlayerName(newName);
+            if (globalThis.window !== undefined) {
+              persistPlayerName(globalThis.sessionStorage, newName);
+            }
+            const targetId = source === 'round' ? submittedEntryId : sessionBestEntryId;
+            if (source === 'round') {
+              setSessionBest(score);
+              setSessionBestEntryId(submittedEntryId);
+              if (globalThis.window !== undefined) {
+                persistSessionBest(globalThis.sessionStorage, score, submittedEntryId);
+              }
+            }
+            void targetId; // used by the gated remote relabel added in Task 8
           }}
           kidModeEnabled={KID_MODE_ENABLED}
           isKidFriendly={isKidFriendly}
