@@ -1650,6 +1650,9 @@ body {
 
 .res-submit-input {
   flex: 1;
+  /* Without this a flex item refuses to shrink below its content width, so the
+     input + button row overflows the card. */
+  min-width: 0;
   padding: 9px 14px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line-strong);

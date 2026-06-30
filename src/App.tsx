@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import {
   AGE_GATE_STORAGE_KEY,
@@ -190,7 +190,7 @@ function App() {
       ? null
       : loadSessionIdentity(globalThis.sessionStorage).sessionBestEntryId,
   );
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'done'>('idle');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   // One-shot guard: holds the roundId we already auto-saved, so an Overlay
   // remount while mode === 'gameOver' can't fire the save twice.
   const autoSavedRoundRef = useRef<number | null>(null);
@@ -504,6 +504,26 @@ function App() {
     return () => window.clearTimeout(timeoutId);
   }, [roundEnding]);
 
+  // Save the current run as the session best. Shared by the auto-save effect
+  // and the manual retry button so a failed auto-save surfaces an error + retry
+  // instead of silently dropping the best.
+  const runSessionBestSave = useCallback(async () => {
+    setAutoSaveStatus('saving');
+    const entry = await submitLeaderboard({ name: playerName, score });
+    if (entry) {
+      setSubmittedEntryId(entry.id);
+      setSessionBest((prev) => nextSessionBest(prev, score));
+      setSessionBestEntryId(entry.id);
+      if (globalThis.window !== undefined) {
+        persistSessionBest(globalThis.sessionStorage, score, entry.id);
+      }
+      setAutoSaveStatus('done');
+    } else {
+      // Surface the failure so the player sees an error + retry, never nothing.
+      setAutoSaveStatus('error');
+    }
+  }, [playerName, score, submitLeaderboard]);
+
   // Auto-save a new session best the moment we enter gameOver. Depends only on
   // `mode` — score/sessionBest/playerName are already final by the 1500ms hold.
   // The synchronous ref write is the one-shot guard (mirrors handleSubmit's
@@ -513,22 +533,7 @@ function App() {
     if (autoSavedRoundRef.current === roundId) return;
     if (!shouldAutoSave({ hasName: playerName !== '', score, sessionBest })) return;
     autoSavedRoundRef.current = roundId;
-    setAutoSaveStatus('saving');
-    void (async () => {
-      const entry = await submitLeaderboard({ name: playerName, score });
-      if (entry) {
-        setSubmittedEntryId(entry.id);
-        setSessionBest((prev) => nextSessionBest(prev, score));
-        setSessionBestEntryId(entry.id);
-        if (globalThis.window !== undefined) {
-          persistSessionBest(globalThis.sessionStorage, score, entry.id);
-        }
-        setAutoSaveStatus('done');
-      } else {
-        autoSavedRoundRef.current = null; // allow a retry next qualifying run
-        setAutoSaveStatus('idle');
-      }
-    })();
+    void runSessionBestSave();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
@@ -787,6 +792,7 @@ function App() {
           playerName={playerName}
           sessionBest={sessionBest}
           autoSaveStatus={autoSaveStatus}
+          onRetrySave={runSessionBestSave}
           onSubmitScore={async (name) => {
             if (score <= 0) return false;
             const entry = await submitLeaderboard({ name, score });
