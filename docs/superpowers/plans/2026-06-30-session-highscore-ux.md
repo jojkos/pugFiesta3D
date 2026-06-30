@@ -741,7 +741,6 @@ Replace the entire current submit region — BOTH the form block `{score > 0 && 
                         {strings.leaderboard.submitFailed}
                       </p>
                     )}
-                    {renameAffordance}
                   </div>
                 );
               }
