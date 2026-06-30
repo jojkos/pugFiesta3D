@@ -2304,6 +2304,14 @@ body {
   background: var(--paper-3) !important;
 }
 
+.res-leave-nudge {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .res-saved-check { animation: none; }
   .res-mini.you { animation: none; }

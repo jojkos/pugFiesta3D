@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { postScore, requestSessionToken } from './leaderboardApi';
+import { postScore, renameScore, requestSessionToken } from './leaderboardApi';
 
 type Call = { input: string; init?: RequestInit };
 
@@ -59,5 +59,23 @@ describe('postScore', () => {
 
   it('returns null when fetch throws', async () => {
     expect(await postScore(throwingFetch, { token: 't', name: 'n', score: 1 })).toBeNull();
+  });
+});
+
+describe('renameScore', () => {
+  it('returns true and POSTs the right body on ok:true', async () => {
+    const calls: Call[] = [];
+    const result = await renameScore(fakeFetch(true, {}, calls), { rowId: 'r1', name: 'Alice' });
+    expect(result).toBe(true);
+    expect(calls[0]?.input).toBe('/api/rename-score');
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ rowId: 'r1', name: 'Alice' });
+  });
+
+  it('returns false on a non-ok response', async () => {
+    expect(await renameScore(fakeFetch(false, { error: 'Forbidden' }), { rowId: 'r1', name: 'Alice' })).toBe(false);
+  });
+
+  it('returns false when fetch throws', async () => {
+    expect(await renameScore(throwingFetch, { rowId: 'r1', name: 'Alice' })).toBe(false);
   });
 });
