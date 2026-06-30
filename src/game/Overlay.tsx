@@ -312,6 +312,8 @@ export function Overlay({
   );
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [renamingMenu, setRenamingMenu] = useState(false);
+  const [renameValueMenu, setRenameValueMenu] = useState('');
   const [menuLeaderboardOpen, setMenuLeaderboardOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
@@ -395,6 +397,7 @@ export function Overlay({
     if (mode !== 'menu') {
       setMenuLeaderboardOpen(false);
       setHelpOpen(false);
+      setRenamingMenu(false);
     }
   }, [mode]);
 
@@ -788,6 +791,46 @@ export function Overlay({
                 🏆 {strings.leaderboard.showButton}
               </button>
             </div>
+
+            {playerName !== '' && (
+              <div className="menu-identity">
+                <span className="menu-identity-name">{strings.menu.playingAs(playerName)}</span>
+                {sessionBest > 0 && (
+                  <span className="menu-identity-best">· {strings.menu.yourBest(sessionBest)}</span>
+                )}
+                {renamingMenu ? (
+                  <form
+                    className="name-edit-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (renameValueMenu.trim() === '') return;
+                      onRename(sanitizeName(renameValueMenu), 'menu');
+                      setRenamingMenu(false);
+                    }}
+                  >
+                    <input
+                      className="res-submit-input"
+                      maxLength={MAX_NAME_LEN}
+                      autoFocus
+                      value={renameValueMenu}
+                      onChange={(event) => setRenameValueMenu(event.target.value)}
+                    />
+                    <button type="submit" className="res-submit-btn">OK</button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    className="name-edit"
+                    onClick={() => {
+                      setRenameValueMenu(playerName);
+                      setRenamingMenu(true);
+                    }}
+                  >
+                    ✎ {sessionBest > 0 ? strings.menu.changeName : strings.menu.changeNameFuture}
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="menu-foot">
               <span className="menu-foot-controls menu-foot-controls-desktop">
