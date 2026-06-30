@@ -39,10 +39,12 @@ const MUSIC_FADE_DURATION = 0.6;
 
 const SFX_URLS = {
   whistle: '/assets/audio/whistle.mp3',
+  yelp: '/assets/audio/yelp.mp3',
 } as const;
 
 const SFX_GAIN: Record<keyof typeof SFX_URLS, number> = {
   whistle: 0.45,
+  yelp: 0.5,
 };
 
 function buildReverbImpulse(context: AudioContext, duration = 1.4) {
@@ -496,6 +498,12 @@ export function useArcadeAudio(muted: boolean) {
     void playSample(SFX_URLS.whistle, SFX_GAIN.whistle);
   }, [playSample]);
 
+  // Short dog yip played when a pug is caught — the "ouch, you stepped on my
+  // paw" squeal layered over the happy tag chord.
+  const playYelp = useCallback(() => {
+    void playSample(SFX_URLS.yelp, SFX_GAIN.yelp);
+  }, [playSample]);
+
   const playMusicTrack = useCallback(
     async (track: MusicTrack | null) => {
       if (track === null) {
@@ -637,6 +645,7 @@ export function useArcadeAudio(muted: boolean) {
   // stutter on round start. Idempotent — loadAudioBuffer caches by URL.
   const preloadAudio = useCallback(() => {
     void loadAudioBuffer(SFX_URLS.whistle);
+    void loadAudioBuffer(SFX_URLS.yelp);
     void loadAudioBuffer(MUSIC_TRACK_URLS.ingame);
   }, [loadAudioBuffer]);
 
@@ -644,6 +653,7 @@ export function useArcadeAudio(muted: boolean) {
     () => ({
       playDash: () => guard(playDash),
       playTag: () => guard(playTag),
+      playYelp: () => guard(playYelp),
       playCheer: () => guard(playCheer),
       playWhistle: () => guard(playWhistle),
       playCountdownTick: () => guard(playCountdownTick),
@@ -662,6 +672,7 @@ export function useArcadeAudio(muted: boolean) {
       guard,
       playDash,
       playTag,
+      playYelp,
       playCheer,
       playWhistle,
       playCountdownTick,
