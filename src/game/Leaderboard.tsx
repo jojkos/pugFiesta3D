@@ -97,6 +97,7 @@ export function MiniLeaderboard({
   loading,
   error,
   highlightId,
+  pulseHighlight = false,
   strings,
   lang,
   limit = 5,
@@ -105,6 +106,8 @@ export function MiniLeaderboard({
   loading: boolean;
   error: string | null;
   highlightId?: string | null;
+  /** Pulse the highlighted row once — only when a save just happened. */
+  pulseHighlight?: boolean;
   strings: Strings;
   lang: Lang;
   limit?: number;
@@ -144,7 +147,7 @@ export function MiniLeaderboard({
           <div
             key={entry.id}
             ref={isYou ? highlightRef : null}
-            className={`res-mini ${isYou ? 'you' : ''}`}
+            className={`res-mini ${isYou ? 'you' : ''} ${isYou && pulseHighlight ? 'is-fresh' : ''}`}
           >
             <span className="res-mini-rank">{badge}</span>
             <span className="res-mini-name-wrap">
