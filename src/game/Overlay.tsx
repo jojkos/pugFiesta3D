@@ -320,6 +320,7 @@ export function Overlay({
   const [isInstalled, setIsInstalled] = useState(() => isAppInstalled());
   const [installInstructionsOpen, setInstallInstructionsOpen] = useState(false);
   const [iosNudgeOpen, setIosNudgeOpen] = useState(false);
+  const [leaveNudged, setLeaveNudged] = useState(false);
 
   // Defer opening the iOS install nudge until the age gate is dismissed so the
   // two modals don't stack on top of each other on first load.
@@ -393,6 +394,7 @@ export function Overlay({
     if (mode !== 'gameOver') {
       setSubmitState('idle');
       setRenaming(false);
+      setLeaveNudged(false);
     }
     if (mode !== 'menu') {
       setMenuLeaderboardOpen(false);
@@ -1214,13 +1216,32 @@ export function Overlay({
             })()}
 
             <div className="res-actions">
-              <button type="button" className="res-btn-prim" onClick={onStartRound}>
+              <button
+                type="button"
+                className="res-btn-prim"
+                onClick={() => {
+                  if (
+                    playerName === '' &&
+                    score > 0 &&
+                    submitState !== 'done' &&
+                    autoSaveStatus === 'idle' &&
+                    !leaveNudged
+                  ) {
+                    setLeaveNudged(true);
+                    return;
+                  }
+                  onStartRound();
+                }}
+              >
                 ▶ {strings.results.again}
               </button>
               <button type="button" className="res-btn-sec" onClick={onQuitToMenu}>
                 {strings.mainMenu}
               </button>
             </div>
+            {leaveNudged && (
+              <p className="res-leave-nudge">{strings.results.saveFirstNudge}</p>
+            )}
           </section>
         </div>
       )}

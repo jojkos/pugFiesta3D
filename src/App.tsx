@@ -51,6 +51,9 @@ import {
 } from './game/highscoreSession';
 import type { AnalogInput, GameMode, KeyboardState } from './game/types';
 
+// Flip to true once /api/rename-score + its auth land (parallel security workstream).
+const RENAME_ENABLED = false;
+
 function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -199,6 +202,7 @@ function App() {
     submit: submitLeaderboard,
     refresh: refreshLeaderboard,
     startSession: startLeaderboardSession,
+    rename: renameLeaderboard,
   } = useLeaderboard();
   const [keys, setKeys] = useState<KeyboardState>({
     up: false,
@@ -824,7 +828,9 @@ function App() {
                 persistSessionBest(globalThis.sessionStorage, score, submittedEntryId);
               }
             }
-            void targetId; // used by the gated remote relabel added in Task 8
+            if (RENAME_ENABLED && targetId) {
+              void renameLeaderboard(targetId, newName);
+            }
           }}
           kidModeEnabled={KID_MODE_ENABLED}
           isKidFriendly={isKidFriendly}
