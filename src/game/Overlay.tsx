@@ -7,7 +7,7 @@ import type { VoiceCharacter } from './useFunnySpeech';
 import { Leaderboard, MiniLeaderboard } from './Leaderboard';
 import { SUPPORTED_LANGS, type Lang, type Strings } from './i18n';
 import { ROUND_DURATION } from './config';
-import { sanitizeName } from './leaderboardUtils';
+import { MAX_NAME_LEN, sanitizeName } from './leaderboardUtils';
 
 const LANG_FLAGS: Record<Lang, string> = {
   cs: '🇨🇿',
@@ -289,7 +289,8 @@ export function Overlay({
   leaderboardLoading: boolean;
   leaderboardError: string | null;
   highlightedEntryId: string | null;
-  onSubmitScore: (name: string) => Promise<void> | void;
+  /** Returns true if the score was saved, false on failure (network/server). */
+  onSubmitScore: (name: string) => Promise<boolean>;
   kidModeEnabled: boolean;
   isKidFriendly: boolean;
   onToggleKidFriendly: () => void;
@@ -297,7 +298,9 @@ export function Overlay({
   onAgeGateAnswer: (isOver15: boolean) => void;
 }>) {
   const [pendingName, setPendingName] = useState('');
-  const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'done'>('idle');
+  const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'done' | 'error'>(
+    'idle',
+  );
   const [menuLeaderboardOpen, setMenuLeaderboardOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
@@ -392,7 +395,9 @@ export function Overlay({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (submitState !== 'idle') return;
+    // Allow a retry from the 'error' state; only block while a request is
+    // already in flight.
+    if (submitState === 'submitting') return;
     const cleaned = sanitizeName(pendingName);
     // Reject only if the raw input is whitespace-only — sanitizeName would
     // give us "Anonymouse" otherwise, which we don't want to submit silently.
@@ -402,8 +407,10 @@ export function Overlay({
     if (typeof window !== 'undefined') {
       window.sessionStorage.setItem('pug-banger-fiesta-player-name', cleaned);
     }
-    await onSubmitScore(cleaned);
-    setSubmitState('done');
+    // On failure, stay on the form with an error so the player can retry or
+    // just play on — never silently advance as if the score was saved.
+    const ok = await onSubmitScore(cleaned);
+    setSubmitState(ok ? 'done' : 'error');
   };
 
   const langLabel = LANG_LABELS[lang];
@@ -1025,22 +1032,29 @@ export function Overlay({
               <form className="res-submit" onSubmit={handleSubmit}>
                 <input
                   className="res-submit-input"
-                  maxLength={24}
+                  maxLength={MAX_NAME_LEN}
                   value={pendingName}
                   onChange={(event) => setPendingName(event.target.value)}
                   placeholder={strings.leaderboard.namePlaceholder}
-                  disabled={submitState !== 'idle'}
+                  disabled={submitState === 'submitting'}
                 />
                 <button
                   type="submit"
                   className="res-submit-btn"
-                  disabled={submitState !== 'idle' || pendingName.trim() === ''}
+                  disabled={submitState === 'submitting' || pendingName.trim() === ''}
                 >
                   {submitState === 'submitting'
                     ? strings.leaderboard.submitting
-                    : strings.leaderboard.submit}
+                    : submitState === 'error'
+                      ? strings.leaderboard.retry
+                      : strings.leaderboard.submit}
                 </button>
               </form>
+            )}
+            {score > 0 && submitState === 'error' && (
+              <p className="res-submit-error" role="alert">
+                {strings.leaderboard.submitFailed}
+              </p>
             )}
 
             <div className="res-actions">

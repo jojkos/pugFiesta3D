@@ -44,12 +44,17 @@ import {
 import { useLeaderboard } from './game/useLeaderboard';
 import type { AnalogInput, GameMode, KeyboardState } from './game/types';
 
+// On catch we play the pug's yelp first, then the main dog's spoken line a
+// beat later — long enough for the yip (~0.28s) to land before the phrase.
+const YELP_LEAD_MS = 280;
+
 function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [paused, setPaused] = useState(false);
   const {
     playDash,
     playTag,
+    playYelp,
     playCheer,
     playWhistle,
     playCountdownTick,
@@ -170,6 +175,7 @@ function App() {
     error: leaderboardError,
     submit: submitLeaderboard,
     refresh: refreshLeaderboard,
+    startSession: startLeaderboardSession,
   } = useLeaderboard();
   const [keys, setKeys] = useState<KeyboardState>({
     up: false,
@@ -560,6 +566,9 @@ function App() {
     // time for the buffers to be ready before they're needed.
     preloadAudio();
     requestImmersiveMode();
+    // Fetch a fresh single-use score-submit token for this round (fire and
+    // forget — it isn't needed until the results screen ~45s later).
+    void startLeaderboardSession();
     setScore(0);
     setTimeLeft(ROUND_DURATION);
     setJoystick({ x: 0, y: 0 });
@@ -619,6 +628,8 @@ function App() {
             onDashStart={playDash}
             onTag={(chainSize, inGoal) => {
               const points = computeLatchPoints(chainSize, inGoal);
+              // The caught pug yelps on every catch (goal or not).
+              playYelp();
               let phraseText: string;
               let phraseKind: 'tag' | 'multi' | 'goal';
               if (inGoal) {
@@ -627,7 +638,8 @@ function App() {
                 playCheer();
                 const now = performance.now() / 1000;
                 if (now - lastGoalShoutAtRef.current >= GOAL_SHOUT_COOLDOWN) {
-                  speakPhrase(strings.goalShout);
+                  // Let the yelp land first, then the main dog's line.
+                  window.setTimeout(() => speakPhrase(strings.goalShout), YELP_LEAD_MS);
                   lastGoalShoutAtRef.current = now;
                 }
               } else {
@@ -635,7 +647,9 @@ function App() {
                 phraseText = multiPhrase ?? pickRandomTagPhrase(lang, isKidFriendly);
                 phraseKind = multiPhrase ? 'multi' : 'tag';
                 playTag();
-                speakPhrase(phraseText);
+                // Let the yelp land first, then the main dog's line.
+                const line = phraseText;
+                window.setTimeout(() => speakPhrase(line), YELP_LEAD_MS);
               }
               phraseNonceRef.current += 1;
               setActivePhrase({
@@ -721,9 +735,13 @@ function App() {
           leaderboardError={leaderboardError}
           highlightedEntryId={submittedEntryId}
           onSubmitScore={async (name) => {
-            if (score <= 0) return;
+            if (score <= 0) return false;
             const entry = await submitLeaderboard({ name, score });
-            if (entry) setSubmittedEntryId(entry.id);
+            if (entry) {
+              setSubmittedEntryId(entry.id);
+              return true;
+            }
+            return false;
           }}
           kidModeEnabled={KID_MODE_ENABLED}
           isKidFriendly={isKidFriendly}
