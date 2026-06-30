@@ -424,6 +424,22 @@ export function Overlay({
     setSubmitState(ok ? 'done' : 'error');
   };
 
+  // A positive run that hasn't been saved: either a first run still showing the
+  // name form, or a new-best whose auto-save failed. Leaving such a run loses
+  // the score, so the first attempt to leave (via Again OR Menu) shows a nudge
+  // instead; a second click proceeds — non-blocking, never a hard trap.
+  const hasUnsavedRun =
+    score > 0 &&
+    ((playerName === '' && submitState !== 'done' && autoSaveStatus === 'idle') ||
+      autoSaveStatus === 'error');
+  const guardLeave = (proceed: () => void) => {
+    if (hasUnsavedRun && !leaveNudged) {
+      setLeaveNudged(true);
+      return;
+    }
+    proceed();
+  };
+
   const langLabel = LANG_LABELS[lang];
   const langFlag = LANG_FLAGS[lang];
   const currentTeam = findTeam(jerseyColor, jerseyAccentColor);
@@ -1073,6 +1089,7 @@ export function Overlay({
                 loading={leaderboardLoading}
                 error={leaderboardError}
                 highlightId={highlightedEntryId}
+                pulseHighlight={autoSaveStatus === 'done' || submitState === 'done'}
                 strings={strings}
                 lang={lang}
                 limit={leaderboardEntries.length}
@@ -1125,13 +1142,16 @@ export function Overlay({
                 return (
                   <div className="res-status res-status-saved">
                     {autoSaveStatus === 'saving' && (
-                      <p className="res-saving">{strings.leaderboard.submitting}</p>
+                      <p className="res-saving" role="status">{strings.leaderboard.submitting}</p>
                     )}
                     {autoSaveStatus === 'done' && (
-                      <p className="res-saved">
-                        <span className="res-saved-check" aria-hidden="true">✓</span>
-                        {strings.results.savedToBoard(playerName)}
-                      </p>
+                      <div className="res-saved-block" aria-live="polite">
+                        <p className="res-saved">
+                          <span className="res-saved-check" aria-hidden="true">✓</span>
+                          {strings.results.savedNewBest}
+                        </p>
+                        <p className="res-saved-name">{strings.results.savedToBoard(playerName)}</p>
+                      </div>
                     )}
                     {autoSaveStatus === 'error' && (
                       <>
@@ -1233,33 +1253,25 @@ export function Overlay({
               return null; // noSave (score === 0)
             })()}
 
+            {leaveNudged && (
+              <p className="res-leave-nudge" role="alert">{strings.results.saveFirstNudge}</p>
+            )}
             <div className="res-actions">
               <button
                 type="button"
                 className="res-btn-prim"
-                onClick={() => {
-                  if (
-                    playerName === '' &&
-                    score > 0 &&
-                    submitState !== 'done' &&
-                    autoSaveStatus === 'idle' &&
-                    !leaveNudged
-                  ) {
-                    setLeaveNudged(true);
-                    return;
-                  }
-                  onStartRound();
-                }}
+                onClick={() => guardLeave(onStartRound)}
               >
                 ▶ {strings.results.again}
               </button>
-              <button type="button" className="res-btn-sec" onClick={onQuitToMenu}>
+              <button
+                type="button"
+                className="res-btn-sec"
+                onClick={() => guardLeave(onQuitToMenu)}
+              >
                 {strings.mainMenu}
               </button>
             </div>
-            {leaveNudged && (
-              <p className="res-leave-nudge">{strings.results.saveFirstNudge}</p>
-            )}
           </section>
         </div>
       )}

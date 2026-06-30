@@ -174,7 +174,8 @@ function App() {
     };
   }, []);
   const [submittedEntryId, setSubmittedEntryId] = useState<string | null>(null);
-  // Lazy-initialize identity state once on mount. The initializer function is
+  // Lazy-initialize identity state from sessionStorage on mount only — each
+  // initializer runs once, so the reads never happen on subsequent renders.
   const [playerName, setPlayerName] = useState(() =>
     globalThis.window === undefined
       ? ''

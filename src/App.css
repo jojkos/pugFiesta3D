@@ -1687,19 +1687,6 @@ body {
   cursor: default;
 }
 
-.res-submit-done {
-  margin: 0;
-  padding: 8px 14px;
-  text-align: center;
-  font-weight: 800;
-  font-size: 12px;
-  color: #6a3d10;
-  background: linear-gradient(90deg, #ffe09b, #ffd86c);
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
 .res-submit-error {
   margin: 6px 0 0;
   padding: 8px 14px;
@@ -1708,9 +1695,11 @@ body {
   font-size: 12px;
   color: #8a1f12;
   background: linear-gradient(90deg, #ffd5cf, #ffc1b8);
-  border-radius: 999px;
+  border-radius: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  /* Server/localized messages can be long — wrap instead of overflowing. */
+  overflow-wrap: anywhere;
 }
 
 /* One fixed-height slot the three game-over states render into, so the card
@@ -1774,6 +1763,11 @@ body {
   font-weight: 900;
   animation: savedCheckPop 180ms cubic-bezier(0.34, 1.4, 0.64, 1) 200ms both;
 }
+.res-saved-name {
+  margin: 0;
+  font-size: 11px;
+  color: var(--ink-mute);
+}
 .res-best-line {
   margin: 0;
   font-size: 12.5px;
@@ -1807,12 +1801,21 @@ body {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.name-edit:hover,
-.name-edit:focus-visible { color: var(--accent); }
+.name-edit:hover { color: var(--accent); }
+.name-edit:focus-visible {
+  color: var(--accent);
+  outline: 2px solid var(--warm-1);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
 .name-edit-form {
   display: flex;
   gap: 6px;
   align-items: center;
+  /* Lives inside the wrapping .menu-identity flex row — must be allowed to
+     shrink/wrap so the input + button never overflow the card. */
+  min-width: 0;
+  max-width: 100%;
 }
 
 @keyframes savedCheckPop {
@@ -1820,14 +1823,16 @@ body {
   to { transform: scale(1); opacity: 1; }
 }
 
-/* The leaderboard row pulse is the real "you landed here" signal. */
-.res-mini.you {
+/* The leaderboard row pulse is the "you just landed here" signal — only fires
+   on a fresh save (the .is-fresh modifier), never on a plain results view.
+   Colour matches the row's own maroon so it reads as the row breathing. */
+.res-mini.you.is-fresh {
   animation: youPulse 600ms ease 320ms 1;
 }
 @keyframes youPulse {
-  0% { box-shadow: 0 0 0 0 rgba(209, 102, 54, 0); }
-  40% { box-shadow: 0 0 0 4px rgba(209, 102, 54, 0.35); }
-  100% { box-shadow: 0 0 0 0 rgba(209, 102, 54, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(110, 31, 58, 0); }
+  40% { box-shadow: 0 0 0 4px rgba(110, 31, 58, 0.5); }
+  100% { box-shadow: 0 0 0 0 rgba(110, 31, 58, 0); }
 }
 
 .res-actions {
@@ -1904,7 +1909,6 @@ body {
     grid-row: 1 / 5;
   }
   .res-submit,
-  .res-submit-done,
   .res-status {
     grid-column: 1 / 2;
   }
@@ -2313,9 +2317,12 @@ body {
   font-weight: 700;
   color: var(--accent);
   text-align: center;
+  /* Span both columns and sit above the sticky actions row in the grid layout
+     so it can't hide beneath them on a short viewport. */
+  grid-column: 1 / -1;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .res-saved-check { animation: none; }
-  .res-mini.you { animation: none; }
+  .res-mini.you.is-fresh { animation: none; }
 }
