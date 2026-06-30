@@ -36,7 +36,8 @@ describe('sanitizeName', () => {
   });
 
   it('preserves non-ASCII characters (diacritics, emoji, etc.)', () => {
-    expect(sanitizeName('Příliš žluťoučký')).toBe('Příliš žluťoučký');
+    // Kept within MAX_NAME_LEN so this checks preservation, not truncation.
+    expect(sanitizeName('žluťoučký')).toBe('žluťoučký');
     expect(sanitizeName('🐶 Mops')).toBe('🐶 Mops');
   });
 
