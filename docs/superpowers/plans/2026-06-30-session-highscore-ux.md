@@ -19,6 +19,8 @@
 - **Rename live network call is GATED** behind `RENAME_ENABLED = false` until the parallel workstream ships `/api/rename-score` + auth. The local identity update (name + re-baseline) still runs; the remote row relabel is the gated part.
 - **No headless/automated browser verification.** UI tasks are verified by running `npm run dev` and observing in a real browser. Run `npm run test:run` and `npm run build` where noted.
 
+> **Post-merge note (parallel security workstream landed):** Line numbers in task headers are ~14-23 lines stale after the security commits; trust the quoted code anchors over line numbers. Network calls now live in `src/game/leaderboardApi.ts` (`requestSessionToken`, `postScore` — each takes a `fetch` fn and returns the value or `null`). `useLeaderboard.submit` no longer sets the shared `error` state (a failed save returns `null`; the leaderboard error stays untouched). No `/api/rename-score` endpoint exists yet, so rename stays gated. Task 8 below is updated to add rename through `leaderboardApi.ts`.
+
 ---
 
 ### Task 1: Pure game-over decision module
@@ -1040,15 +1042,45 @@ git commit -m "feat(highscore): status-slot, quiet save celebration, identity + 
 ### Task 8: Rename client function (gated) and the State A leave-nudge
 
 **Files:**
-- Modify: `src/game/useLeaderboard.ts` (add `rename`); `src/App.tsx` (wire `renameLeaderboard` into `onRename` behind the flag; add the leave-nudge)
+- Modify: `src/game/leaderboardApi.ts` (add `renameScore`); `src/game/leaderboardApi.test.ts` (test it — match the existing test file if present, else create); `src/game/useLeaderboard.ts` (add `rename` calling `renameScore`); `src/App.tsx` (wire `renameLeaderboard` into `onRename` behind the flag; add the leave-nudge)
 
 **Interfaces:**
-- Consumes: the existing `getSupabase` is not used here (writes are server-only); `onRename` from Task 4.
-- Produces: `useLeaderboard().rename(rowId: string, newName: string): Promise<boolean>`; const `RENAME_ENABLED`.
+- Consumes: the `leaderboardApi` module pattern (`postScore`/`requestSessionToken` take a `fetch` fn, return value-or-`null`); `onRename` from Task 4.
+- Produces: `renameScore(fetchFn, { rowId, name }): Promise<boolean>` in `leaderboardApi.ts`; `useLeaderboard().rename(rowId: string, newName: string): Promise<boolean>`; const `RENAME_ENABLED`.
 
-- [ ] **Step 1: Add the gated `rename` to useLeaderboard**
+- [ ] **Step 1: Add `renameScore` to the API module (following the existing `postScore` pattern)**
 
-In `src/game/useLeaderboard.ts`, add to the `LeaderboardState` type:
+In `src/game/leaderboardApi.ts`, append:
+
+```typescript
+export async function renameScore(
+  fetchFn: FetchFn,
+  input: { rowId: string; name: string },
+): Promise<boolean> {
+  try {
+    const res = await fetchFn('/api/rename-score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+```
+
+If `src/game/leaderboardApi.test.ts` exists, add a test mirroring its `postScore` style (a fake `fetch` returning `{ ok: true }` → `true`; `{ ok: false }` → `false`; a throwing fetch → `false`). Run `npm run test:run -- src/game/leaderboardApi.test.ts` and confirm green.
+
+- [ ] **Step 2: Add the gated `rename` to useLeaderboard**
+
+In `src/game/useLeaderboard.ts`, update the import to include `renameScore`:
+
+```typescript
+import { postScore, requestSessionToken, renameScore } from './leaderboardApi';
+```
+
+Add to the `LeaderboardState` type:
 
 ```typescript
   /** Relabel an existing row's player_name. Gated until /api/rename-score ships. */
@@ -1058,20 +1090,14 @@ In `src/game/useLeaderboard.ts`, add to the `LeaderboardState` type:
 Add the implementation before the `return` (after `submit`):
 
 ```typescript
-  const rename = useCallback<LeaderboardState['rename']>(async (rowId, newName) => {
-    try {
-      const res = await fetch('/api/rename-score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rowId, name: newName }),
-      });
-      if (!res.ok) return false;
-      await refresh();
-      return true;
-    } catch {
-      return false;
-    }
-  }, [refresh]);
+  const rename = useCallback<LeaderboardState['rename']>(
+    async (rowId, newName) => {
+      const ok = await renameScore(fetch, { rowId, name: newName });
+      if (ok) await refresh();
+      return ok;
+    },
+    [refresh],
+  );
 ```
 
 Add `rename` to the returned object:
@@ -1080,7 +1106,7 @@ Add `rename` to the returned object:
   return { entries, loading, error, refresh, startSession, submit, rename };
 ```
 
-- [ ] **Step 2: Wire the gated remote relabel into App's `onRename`**
+- [ ] **Step 3: Wire the gated remote relabel into App's `onRename`**
 
 In `src/App.tsx`, add near the top of the component file (module scope, above the component):
 
@@ -1103,7 +1129,7 @@ Extend the `onRename` handler body (from Task 4): replace the `void targetId;` p
             }
 ```
 
-- [ ] **Step 3: Add the State A leave-nudge**
+- [ ] **Step 4: Add the State A leave-nudge**
 
 The nudge fires when a first-time player (no name, score > 0, nothing saved) clicks "Again" or "Main menu". In `Overlay.tsx`, the game-over action buttons are at :1046-1053. Wrap their handlers so an unsaved first run shows a one-line confirm. Replace the `res-actions` block (:1046-1053) with:
 
@@ -1163,7 +1189,7 @@ Add the nudge style at the end of `src/App.css`:
 
 > Behavior: the first "Again" click on an unsaved first run is swallowed and shows the nudge; a second click proceeds. "Main menu" is never blocked (we don't trap). This is the confirmed-in-scope, non-blocking nudge.
 
-- [ ] **Step 4: Verify build + run**
+- [ ] **Step 5: Verify build + run**
 
 Run: `npm run build`
 Expected: PASS.
@@ -1172,10 +1198,10 @@ Run: `npm run dev` and verify:
 - On a first run with a score, clicking "Again" without saving shows "Save your run first!" once; clicking "Again" again starts the round.
 - Rename still updates the local name (the remote relabel is a no-op while `RENAME_ENABLED` is false — confirm no network error is surfaced to the user).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/game/useLeaderboard.ts src/App.tsx src/game/Overlay.tsx src/App.css
+git add src/game/leaderboardApi.ts src/game/leaderboardApi.test.ts src/game/useLeaderboard.ts src/App.tsx src/game/Overlay.tsx src/App.css
 git commit -m "feat(highscore): gated rename client + State A leave-nudge"
 ```
 
@@ -1207,8 +1233,13 @@ Run `npm run dev` and walk the full matrix:
 
 - [ ] **Step 4: Commit (if any verification-driven fixups were needed)**
 
+Stage only the plan's files (the working tree has unrelated changes — `main.tsx`, a `discgolf/` POC — that must NOT be swept in):
+
 ```bash
-git add -A
+git add src/game/highscoreSession.ts src/game/highscoreSession.test.ts \
+  src/game/leaderboardApi.ts src/game/leaderboardApi.test.ts \
+  src/game/useLeaderboard.ts src/game/i18n.ts src/App.tsx \
+  src/game/Overlay.tsx src/App.css
 git commit -m "chore(highscore): regression pass fixups"
 ```
 
