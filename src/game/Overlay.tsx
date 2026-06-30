@@ -1163,7 +1163,6 @@ export function Overlay({
                         {strings.leaderboard.submitFailed}
                       </p>
                     )}
-                    {renameAffordance}
                   </div>
                 );
               }
