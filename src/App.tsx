@@ -44,17 +44,12 @@ import {
 import { useLeaderboard } from './game/useLeaderboard';
 import type { AnalogInput, GameMode, KeyboardState } from './game/types';
 
-// On catch we play the pug's yelp first, then the main dog's spoken line a
-// beat later — long enough for the yip (~0.28s) to land before the phrase.
-const YELP_LEAD_MS = 280;
-
 function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [paused, setPaused] = useState(false);
   const {
     playDash,
     playTag,
-    playYelp,
     playCheer,
     playWhistle,
     playCountdownTick,
@@ -628,8 +623,6 @@ function App() {
             onDashStart={playDash}
             onTag={(chainSize, inGoal) => {
               const points = computeLatchPoints(chainSize, inGoal);
-              // The caught pug yelps on every catch (goal or not).
-              playYelp();
               let phraseText: string;
               let phraseKind: 'tag' | 'multi' | 'goal';
               if (inGoal) {
@@ -638,8 +631,7 @@ function App() {
                 playCheer();
                 const now = performance.now() / 1000;
                 if (now - lastGoalShoutAtRef.current >= GOAL_SHOUT_COOLDOWN) {
-                  // Let the yelp land first, then the main dog's line.
-                  window.setTimeout(() => speakPhrase(strings.goalShout), YELP_LEAD_MS);
+                  speakPhrase(strings.goalShout);
                   lastGoalShoutAtRef.current = now;
                 }
               } else {
@@ -647,9 +639,7 @@ function App() {
                 phraseText = multiPhrase ?? pickRandomTagPhrase(lang, isKidFriendly);
                 phraseKind = multiPhrase ? 'multi' : 'tag';
                 playTag();
-                // Let the yelp land first, then the main dog's line.
-                const line = phraseText;
-                window.setTimeout(() => speakPhrase(line), YELP_LEAD_MS);
+                speakPhrase(phraseText);
               }
               phraseNonceRef.current += 1;
               setActivePhrase({
