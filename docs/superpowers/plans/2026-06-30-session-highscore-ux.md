@@ -575,20 +575,21 @@ Replace the effect at :386-391 (the one reading `pug-banger-fiesta-player-name` 
   }, [mode, submitState, playerName]);
 ```
 
-- [ ] **Step 3: Simplify `handleSubmit` (App persists the name now)**
+- [ ] **Step 3: Drop the local name-persist from `handleSubmit` (App persists it now)**
 
-Replace `handleSubmit` (:393-407) with — note the removed `sessionStorage.setItem`, which moved to App:
+> POST-MERGE REALITY: the parallel session already hardened `handleSubmit` — `submitState` is `'idle' | 'submitting' | 'done' | 'error'`, and `handleSubmit` does `const ok = await onSubmitScore(cleaned); setSubmitState(ok ? 'done' : 'error');` with retry from the error state. **Preserve all of that.** Make ONLY this change: remove the `sessionStorage.setItem('pug-banger-fiesta-player-name', cleaned)` block (App.tsx now owns name persistence via `onSubmitScore`). Do not touch the boolean result handling, the error state, or the retry guard. After the edit `handleSubmit` reads:
 
 ```typescript
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (submitState !== 'idle') return;
-    if (pendingName.trim() === '') return;
+    if (submitState === 'submitting') return;
     const cleaned = sanitizeName(pendingName);
+    if (pendingName.trim() === '') return;
     setPendingName(cleaned);
     setSubmitState('submitting');
-    await onSubmitScore(cleaned);
-    setSubmitState('done');
+    // App persists the name on a successful save; no sessionStorage write here.
+    const ok = await onSubmitScore(cleaned);
+    setSubmitState(ok ? 'done' : 'error');
   };
 ```
 
@@ -603,7 +604,9 @@ Near the other `useState` hooks at the top of `Overlay` (~:299-306), add:
 
 - [ ] **Step 5: Replace the submit form block with the three-state status slot**
 
-Replace the entire block at :1024-1044 (the `{score > 0 && submitState !== 'done' && (<form ...>...</form>)}`) with:
+Replace the entire current submit region — BOTH the form block `{score > 0 && submitState !== 'done' && (<form className="res-submit" …>…</form>)}` AND the error block that follows it `{score > 0 && submitState === 'error' && (<p className="res-submit-error" …>…</p>)}` — with the single IIFE below.
+
+> POST-MERGE NOTES: `submitState` is `'idle' | 'submitting' | 'done' | 'error'`. The name input uses `maxLength={MAX_NAME_LEN}` (already imported in Overlay) and the error/retry strings `strings.leaderboard.retry` / `strings.leaderboard.submitFailed` (already in i18n) — preserve all of that in States A and C. The `disabled` guard is `submitState === 'submitting'` (allow retry from the error state), NOT `!== 'idle'`. The rename affordance only renders after a successful save (autoSaveStatus `'done'` or State C `submitState === 'done'`), so `submittedEntryId` is always non-null when rename is reachable.
 
 ```tsx
             {(() => {
@@ -625,7 +628,7 @@ Replace the entire block at :1024-1044 (the `{score > 0 && submitState !== 'done
                 >
                   <input
                     className="res-submit-input"
-                    maxLength={24}
+                    maxLength={MAX_NAME_LEN}
                     autoFocus
                     value={renameValue}
                     onChange={(event) => setRenameValue(event.target.value)}
@@ -664,7 +667,8 @@ Replace the entire block at :1024-1044 (the `{score > 0 && submitState !== 'done
                 );
               }
 
-              // State A — first save of the session (manual, prominent).
+              // State A — first save of the session (manual, prominent), with
+              // the same error/retry affordance as the hardened submit form.
               if (status === 'firstSave') {
                 return (
                   <form className="res-submit is-primary" onSubmit={handleSubmit}>
@@ -672,23 +676,30 @@ Replace the entire block at :1024-1044 (the `{score > 0 && submitState !== 'done
                     <div className="res-submit-row">
                       <input
                         className="res-submit-input"
-                        maxLength={24}
+                        maxLength={MAX_NAME_LEN}
                         autoFocus
                         value={pendingName}
                         onChange={(event) => setPendingName(event.target.value)}
                         placeholder={strings.leaderboard.namePlaceholder}
-                        disabled={submitState !== 'idle'}
+                        disabled={submitState === 'submitting'}
                       />
                       <button
                         type="submit"
                         className="res-submit-btn is-primary"
-                        disabled={submitState !== 'idle' || pendingName.trim() === ''}
+                        disabled={submitState === 'submitting' || pendingName.trim() === ''}
                       >
                         {submitState === 'submitting'
                           ? strings.leaderboard.submitting
-                          : strings.leaderboard.submit}
+                          : submitState === 'error'
+                            ? strings.leaderboard.retry
+                            : strings.leaderboard.submit}
                       </button>
                     </div>
+                    {submitState === 'error' && (
+                      <p className="res-submit-error" role="alert">
+                        {strings.leaderboard.submitFailed}
+                      </p>
+                    )}
                   </form>
                 );
               }
@@ -712,17 +723,24 @@ Replace the entire block at :1024-1044 (the `{score > 0 && submitState !== 'done
                     <button
                       type="button"
                       className="res-save-anyway"
-                      disabled={submitState !== 'idle'}
+                      disabled={submitState === 'submitting'}
                       onClick={async () => {
                         setSubmitState('submitting');
-                        await onSubmitScore(playerName);
-                        setSubmitState('done');
+                        const ok = await onSubmitScore(playerName);
+                        setSubmitState(ok ? 'done' : 'error');
                       }}
                     >
                       {submitState === 'submitting'
                         ? strings.leaderboard.submitting
-                        : strings.results.saveAnyway}
+                        : submitState === 'error'
+                          ? strings.leaderboard.retry
+                          : strings.results.saveAnyway}
                     </button>
+                    {submitState === 'error' && (
+                      <p className="res-submit-error" role="alert">
+                        {strings.leaderboard.submitFailed}
+                      </p>
+                    )}
                     {renameAffordance}
                   </div>
                 );
@@ -792,7 +810,7 @@ Immediately **before** the `<div className="menu-foot">` element (:782), add:
                   >
                     <input
                       className="res-submit-input"
-                      maxLength={24}
+                      maxLength={MAX_NAME_LEN}
                       autoFocus
                       value={renameValueMenu}
                       onChange={(event) => setRenameValueMenu(event.target.value)}
