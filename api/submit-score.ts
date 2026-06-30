@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAdminSupabase } from './_lib/supabaseAdmin';
-import { verifyToken } from './_lib/scoreToken';
-import { sanitizeName } from '../src/game/leaderboardUtils';
-import { MAX_PLAUSIBLE_SCORE, ROUND_DURATION_S } from '../src/game/scoreLimits';
+import { getAdminSupabase } from './_lib/supabaseAdmin.js';
+import { verifyToken } from './_lib/scoreToken.js';
+import { sanitizeName } from '../src/game/leaderboardUtils.js';
+import { MAX_PLAUSIBLE_SCORE, ROUND_DURATION_S } from '../src/game/scoreLimits.js';
 
 const TABLE = 'leaderboard';
 
