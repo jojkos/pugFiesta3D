@@ -48,3 +48,66 @@ describe('nextSessionBest', () => {
     expect(nextSessionBest(0, 3)).toBe(3);
   });
 });
+
+import {
+  PLAYER_NAME_KEY,
+  SESSION_BEST_KEY,
+  SESSION_BEST_ENTRY_KEY,
+  loadSessionIdentity,
+  persistPlayerName,
+  persistSessionBest,
+} from './highscoreSession';
+
+function fakeStorage(initial: Record<string, string> = {}) {
+  const map = new Map<string, string>(Object.entries(initial));
+  return {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, v),
+    _map: map,
+  };
+}
+
+describe('loadSessionIdentity', () => {
+  it('returns empty defaults when storage is empty', () => {
+    expect(loadSessionIdentity(fakeStorage())).toEqual({
+      playerName: '',
+      sessionBest: 0,
+      sessionBestEntryId: null,
+    });
+  });
+  it('reads a stored identity', () => {
+    const s = fakeStorage({
+      [PLAYER_NAME_KEY]: 'Mopsík',
+      [SESSION_BEST_KEY]: '42',
+      [SESSION_BEST_ENTRY_KEY]: 'row-1',
+    });
+    expect(loadSessionIdentity(s)).toEqual({
+      playerName: 'Mopsík',
+      sessionBest: 42,
+      sessionBestEntryId: 'row-1',
+    });
+  });
+  it('treats a non-numeric stored best as 0', () => {
+    const s = fakeStorage({ [SESSION_BEST_KEY]: 'oops' });
+    expect(loadSessionIdentity(s).sessionBest).toBe(0);
+  });
+});
+
+describe('persist helpers', () => {
+  it('persistPlayerName writes the name', () => {
+    const s = fakeStorage();
+    persistPlayerName(s, 'Rex');
+    expect(s._map.get(PLAYER_NAME_KEY)).toBe('Rex');
+  });
+  it('persistSessionBest writes best and entry id', () => {
+    const s = fakeStorage();
+    persistSessionBest(s, 17, 'row-9');
+    expect(s._map.get(SESSION_BEST_KEY)).toBe('17');
+    expect(s._map.get(SESSION_BEST_ENTRY_KEY)).toBe('row-9');
+  });
+  it('persistSessionBest clears the entry id key when null', () => {
+    const s = fakeStorage({ [SESSION_BEST_ENTRY_KEY]: 'old' });
+    persistSessionBest(s, 17, null);
+    expect(s._map.get(SESSION_BEST_ENTRY_KEY)).toBe('');
+  });
+});
