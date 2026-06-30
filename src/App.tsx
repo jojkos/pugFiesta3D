@@ -175,21 +175,20 @@ function App() {
   }, []);
   const [submittedEntryId, setSubmittedEntryId] = useState<string | null>(null);
   // Lazy-initialize identity state once on mount. The initializer function is
-  // called only by the first useState; subsequent ones read from the same ref
-  // so sessionStorage is touched at most once regardless of re-render count.
-  const identityInitRef = useRef<ReturnType<typeof loadSessionIdentity> | null>(null);
-  const getInitialIdentity = () => {
-    if (identityInitRef.current !== null) return identityInitRef.current;
-    identityInitRef.current =
-      globalThis.window === undefined
-        ? { playerName: '', sessionBest: 0, sessionBestEntryId: null as string | null }
-        : loadSessionIdentity(globalThis.sessionStorage);
-    return identityInitRef.current;
-  };
-  const [playerName, setPlayerName] = useState(() => getInitialIdentity().playerName);
-  const [sessionBest, setSessionBest] = useState(() => getInitialIdentity().sessionBest);
-  const [sessionBestEntryId, setSessionBestEntryId] = useState<string | null>(
-    () => getInitialIdentity().sessionBestEntryId,
+  const [playerName, setPlayerName] = useState(() =>
+    globalThis.window === undefined
+      ? ''
+      : loadSessionIdentity(globalThis.sessionStorage).playerName,
+  );
+  const [sessionBest, setSessionBest] = useState(() =>
+    globalThis.window === undefined
+      ? 0
+      : loadSessionIdentity(globalThis.sessionStorage).sessionBest,
+  );
+  const [sessionBestEntryId, setSessionBestEntryId] = useState<string | null>(() =>
+    globalThis.window === undefined
+      ? null
+      : loadSessionIdentity(globalThis.sessionStorage).sessionBestEntryId,
   );
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'done'>('idle');
   // One-shot guard: holds the roundId we already auto-saved, so an Overlay
