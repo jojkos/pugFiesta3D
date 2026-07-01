@@ -28,10 +28,6 @@ const cs = {
     controlsMobileHint: 'Joystick · Kliknutí na BANG',
     install: 'Nainstalovat',
     installed: 'Nainstalováno',
-    playingAs: (name: string) => `Hraješ jako ${name}`,
-    yourBest: (n: number) => `tvůj rekord: ${n}`,
-    changeName: 'změnit jméno',
-    changeNameFuture: 'změnit jméno (platí pro další kolo)',
   },
   install: {
     title: 'Přidat na plochu',
@@ -65,10 +61,6 @@ const cs = {
     pace: 'Tempo',
     paceUnit: '/s',
     again: 'JEŠTĚ JEDNOU!',
-    savedNewBest: 'tvůj nový rekord!',
-    savedToBoard: (name: string) => `Uloženo jako ${name}`,
-    sessionBestLabel: (n: number) => `Tvůj nejlepší pokus: ${n}`,
-    saveAnyway: 'Uložit i tak',
     saveFirstNudge: 'Ulož si nejdřív skóre!',
   },
   leaderboard: {
@@ -89,8 +81,6 @@ const cs = {
     eyebrow: 'žebříček',
     back: 'Zpět do menu',
     you: 'TY',
-    enterNamePrompt: 'Zapiš se do síně slávy',
-    renameError: 'Přejmenování se nezdařilo.',
   },
   mainMenu: 'Hlavní menu',
   rotate: {
@@ -170,10 +160,6 @@ const en: typeof cs = {
     controlsMobileHint: 'Joystick · Tap to dash',
     install: 'Install',
     installed: 'Installed',
-    playingAs: (name: string) => `Playing as ${name}`,
-    yourBest: (n: number) => `your best: ${n}`,
-    changeName: 'change name',
-    changeNameFuture: 'change name (applies next round)',
   },
   install: {
     title: 'Add to home screen',
@@ -201,16 +187,12 @@ const en: typeof cs = {
   results: {
     eyebrow: 'round complete',
     suffix: 'latched',
-    newBest: 'NEW RECORD — top pug supreme!',
+    newBest: 'NEW PERSONAL BEST — top pug supreme!',
     tryAgain: 'Tighten that timing and go pug yourself.',
     best: 'Best',
     pace: 'Pace',
     paceUnit: '/s',
     again: 'ONE MORE!',
-    savedNewBest: 'your new best!',
-    savedToBoard: (name: string) => `Saved as ${name}`,
-    sessionBestLabel: (n: number) => `Your best run: ${n}`,
-    saveAnyway: 'Save anyway',
     saveFirstNudge: 'Save your run first!',
   },
   leaderboard: {
@@ -231,8 +213,6 @@ const en: typeof cs = {
     eyebrow: 'leaderboard',
     back: 'Back to menu',
     you: 'YOU',
-    enterNamePrompt: 'Get on the board',
-    renameError: 'Rename failed.',
   },
   mainMenu: 'Main menu',
   rotate: {

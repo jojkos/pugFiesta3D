@@ -8,7 +8,6 @@ import { Leaderboard, MiniLeaderboard } from './Leaderboard';
 import { SUPPORTED_LANGS, type Lang, type Strings } from './i18n';
 import { ROUND_DURATION } from './config';
 import { MAX_NAME_LEN, sanitizeName } from './leaderboardUtils';
-import { decideGameOverStatus } from './highscoreSession';
 
 const LANG_FLAGS: Record<Lang, string> = {
   cs: '🇨🇿',
@@ -266,11 +265,6 @@ export function Overlay({
   onToggleKidFriendly,
   showAgeGate,
   onAgeGateAnswer,
-  playerName,
-  sessionBest,
-  autoSaveStatus,
-  onRetrySave,
-  onRename,
 }: Readonly<{
   countdown: number | null;
   mode: GameMode;
@@ -302,28 +296,18 @@ export function Overlay({
   onToggleKidFriendly: () => void;
   showAgeGate: boolean;
   onAgeGateAnswer: (isOver15: boolean) => void;
-  playerName: string;
-  sessionBest: number;
-  autoSaveStatus: 'idle' | 'saving' | 'done' | 'error';
-  /** Retry a failed auto-save of the session best. */
-  onRetrySave: () => void;
-  onRename: (newName: string, source: 'round' | 'menu') => void;
 }>) {
   const [pendingName, setPendingName] = useState('');
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'done' | 'error'>(
     'idle',
   );
-  const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState('');
-  const [renamingMenu, setRenamingMenu] = useState(false);
-  const [renameValueMenu, setRenameValueMenu] = useState('');
+  const [leaveNudged, setLeaveNudged] = useState(false);
   const [menuLeaderboardOpen, setMenuLeaderboardOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(() => isAppInstalled());
   const [installInstructionsOpen, setInstallInstructionsOpen] = useState(false);
   const [iosNudgeOpen, setIosNudgeOpen] = useState(false);
-  const [leaveNudged, setLeaveNudged] = useState(false);
 
   // Defer opening the iOS install nudge until the age gate is dismissed so the
   // two modals don't stack on top of each other on first load.
@@ -396,42 +380,45 @@ export function Overlay({
   useEffect(() => {
     if (mode !== 'gameOver') {
       setSubmitState('idle');
-      setRenaming(false);
       setLeaveNudged(false);
     }
     if (mode !== 'menu') {
       setMenuLeaderboardOpen(false);
       setHelpOpen(false);
-      setRenamingMenu(false);
     }
   }, [mode]);
 
   useEffect(() => {
-    if (mode === 'gameOver' && submitState === 'idle') {
-      setPendingName(playerName);
+    if (mode === 'gameOver' && submitState === 'idle' && typeof window !== 'undefined') {
+      const stored = window.sessionStorage.getItem('pug-banger-fiesta-player-name') ?? '';
+      setPendingName(stored);
     }
-  }, [mode, submitState, playerName]);
+  }, [mode, submitState]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    // Allow a retry from the 'error' state; only block while a request is
+    // already in flight.
     if (submitState === 'submitting') return;
     const cleaned = sanitizeName(pendingName);
+    // Reject only if the raw input is whitespace-only — sanitizeName would
+    // give us "Anonymouse" otherwise, which we don't want to submit silently.
     if (pendingName.trim() === '') return;
     setPendingName(cleaned);
     setSubmitState('submitting');
-    // App persists the name on a successful save; no sessionStorage write here.
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('pug-banger-fiesta-player-name', cleaned);
+    }
+    // On failure, stay on the form with an error so the player can retry or
+    // just play on — never silently advance as if the score was saved.
     const ok = await onSubmitScore(cleaned);
     setSubmitState(ok ? 'done' : 'error');
   };
 
-  // A positive run that hasn't been saved: either a first run still showing the
-  // name form, or a new-best whose auto-save failed. Leaving such a run loses
-  // the score, so the first attempt to leave (via Again OR Menu) shows a nudge
-  // instead; a second click proceeds — non-blocking, never a hard trap.
-  const hasUnsavedRun =
-    score > 0 &&
-    ((playerName === '' && submitState !== 'done' && autoSaveStatus === 'idle') ||
-      autoSaveStatus === 'error');
+  // A positive run that hasn't been saved yet. Leaving (Again or Menu) would
+  // lose it, so the FIRST attempt to leave shows a one-shot nudge instead of
+  // acting; a second click proceeds — never a hard trap.
+  const hasUnsavedRun = score > 0 && submitState !== 'done';
   const guardLeave = (proceed: () => void) => {
     if (hasUnsavedRun && !leaveNudged) {
       setLeaveNudged(true);
@@ -813,46 +800,6 @@ export function Overlay({
               </button>
             </div>
 
-            {playerName !== '' && (
-              <div className="menu-identity">
-                <span className="menu-identity-name">{strings.menu.playingAs(playerName)}</span>
-                {sessionBest > 0 && (
-                  <span className="menu-identity-best">· {strings.menu.yourBest(sessionBest)}</span>
-                )}
-                {renamingMenu ? (
-                  <form
-                    className="name-edit-form"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      if (renameValueMenu.trim() === '') return;
-                      onRename(sanitizeName(renameValueMenu), 'menu');
-                      setRenamingMenu(false);
-                    }}
-                  >
-                    <input
-                      className="res-submit-input"
-                      maxLength={MAX_NAME_LEN}
-                      autoFocus
-                      value={renameValueMenu}
-                      onChange={(event) => setRenameValueMenu(event.target.value)}
-                    />
-                    <button type="submit" className="res-submit-btn">OK</button>
-                  </form>
-                ) : (
-                  <button
-                    type="button"
-                    className="name-edit"
-                    onClick={() => {
-                      setRenameValueMenu(playerName);
-                      setRenamingMenu(true);
-                    }}
-                  >
-                    ✎ {sessionBest > 0 ? strings.menu.changeName : strings.menu.changeNameFuture}
-                  </button>
-                )}
-              </div>
-            )}
-
             <div className="menu-foot">
               <span className="menu-foot-controls menu-foot-controls-desktop">
                 <kbd>WASD</kbd> / <kbd>↑↓←→</kbd> · <kbd>Space</kbd>
@@ -1089,171 +1036,42 @@ export function Overlay({
                 loading={leaderboardLoading}
                 error={leaderboardError}
                 highlightId={highlightedEntryId}
-                pulseHighlight={autoSaveStatus === 'done' || submitState === 'done'}
                 strings={strings}
                 lang={lang}
                 limit={leaderboardEntries.length}
               />
             </aside>
 
-            {(() => {
-              const status = decideGameOverStatus({
-                hasName: playerName !== '',
-                score,
-                sessionBest,
-              });
-
-              const renameAffordance = renaming ? (
-                <form
-                  className="name-edit-form"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (renameValue.trim() === '') return;
-                    onRename(sanitizeName(renameValue), 'round');
-                    setRenaming(false);
-                  }}
-                >
-                  <input
-                    className="res-submit-input"
-                    maxLength={MAX_NAME_LEN}
-                    autoFocus
-                    value={renameValue}
-                    onChange={(event) => setRenameValue(event.target.value)}
-                  />
-                  <button type="submit" className="res-submit-btn">
-                    OK
-                  </button>
-                </form>
-              ) : (
+            {score > 0 && submitState !== 'done' && (
+              <form className="res-submit" onSubmit={handleSubmit}>
+                <input
+                  className="res-submit-input"
+                  maxLength={MAX_NAME_LEN}
+                  value={pendingName}
+                  onChange={(event) => setPendingName(event.target.value)}
+                  placeholder={strings.leaderboard.namePlaceholder}
+                  disabled={submitState === 'submitting'}
+                />
                 <button
-                  type="button"
-                  className="name-edit"
-                  onClick={() => {
-                    setRenameValue(playerName);
-                    setRenaming(true);
-                  }}
+                  type="submit"
+                  className="res-submit-btn"
+                  disabled={submitState === 'submitting' || pendingName.trim() === ''}
                 >
-                  ✎ {strings.menu.changeName}
+                  {submitState === 'submitting'
+                    ? strings.leaderboard.submitting
+                    : submitState === 'error'
+                      ? strings.leaderboard.retry
+                      : strings.leaderboard.submit}
                 </button>
-              );
+              </form>
+            )}
+            {score > 0 && submitState === 'error' && (
+              <p className="res-submit-error" role="alert">
+                {strings.leaderboard.submitFailed}
+              </p>
+            )}
 
-              // State B — auto-saving / saved / failed (new session best).
-              if (autoSaveStatus !== 'idle') {
-                return (
-                  <div className="res-status res-status-saved">
-                    {autoSaveStatus === 'saving' && (
-                      <p className="res-saving" role="status">{strings.leaderboard.submitting}</p>
-                    )}
-                    {autoSaveStatus === 'done' && (
-                      <div className="res-saved-block" aria-live="polite">
-                        <p className="res-saved">
-                          <span className="res-saved-check" aria-hidden="true">✓</span>
-                          {strings.results.savedNewBest}
-                        </p>
-                        <p className="res-saved-name">{strings.results.savedToBoard(playerName)}</p>
-                      </div>
-                    )}
-                    {autoSaveStatus === 'error' && (
-                      <>
-                        <p className="res-submit-error" role="alert">
-                          {strings.leaderboard.submitFailed}
-                        </p>
-                        <button
-                          type="button"
-                          className="res-save-anyway"
-                          onClick={onRetrySave}
-                        >
-                          {strings.leaderboard.retry}
-                        </button>
-                      </>
-                    )}
-                    {autoSaveStatus === 'done' && renameAffordance}
-                  </div>
-                );
-              }
-
-              // State A — first save of the session (manual, prominent), with
-              // the same error/retry affordance as the hardened submit form.
-              if (status === 'firstSave') {
-                return (
-                  <form className="res-submit is-primary" onSubmit={handleSubmit}>
-                    <p className="res-submit-eye">{strings.leaderboard.enterNamePrompt}</p>
-                    <div className="res-submit-row">
-                      <input
-                        className="res-submit-input"
-                        maxLength={MAX_NAME_LEN}
-                        autoFocus
-                        value={pendingName}
-                        onChange={(event) => setPendingName(event.target.value)}
-                        placeholder={strings.leaderboard.namePlaceholder}
-                        disabled={submitState === 'submitting'}
-                      />
-                      <button
-                        type="submit"
-                        className="res-submit-btn is-primary"
-                        disabled={submitState === 'submitting' || pendingName.trim() === ''}
-                      >
-                        {submitState === 'submitting'
-                          ? strings.leaderboard.submitting
-                          : submitState === 'error'
-                            ? strings.leaderboard.retry
-                            : strings.leaderboard.submit}
-                      </button>
-                    </div>
-                    {submitState === 'error' && (
-                      <p className="res-submit-error" role="alert">
-                        {strings.leaderboard.submitFailed}
-                      </p>
-                    )}
-                  </form>
-                );
-              }
-
-              // State C — named, not a new best: manual "save anyway".
-              if (status === 'lowerManual') {
-                if (submitState === 'done') {
-                  return (
-                    <div className="res-status">
-                      <p className="res-saved">
-                        <span className="res-saved-check" aria-hidden="true">✓</span>
-                        {strings.results.savedToBoard(playerName)}
-                      </p>
-                      {renameAffordance}
-                    </div>
-                  );
-                }
-                return (
-                  <div className="res-status">
-                    <p className="res-best-line">{strings.results.sessionBestLabel(sessionBest)}</p>
-                    <button
-                      type="button"
-                      className="res-save-anyway"
-                      disabled={submitState === 'submitting'}
-                      onClick={async () => {
-                        setSubmitState('submitting');
-                        const ok = await onSubmitScore(playerName);
-                        setSubmitState(ok ? 'done' : 'error');
-                      }}
-                    >
-                      {submitState === 'submitting'
-                        ? strings.leaderboard.submitting
-                        : submitState === 'error'
-                          ? strings.leaderboard.retry
-                          : strings.results.saveAnyway}
-                    </button>
-                    {submitState === 'error' && (
-                      <p className="res-submit-error" role="alert">
-                        {strings.leaderboard.submitFailed}
-                      </p>
-                    )}
-                  </div>
-                );
-              }
-
-              return null; // noSave (score === 0)
-            })()}
-
-            {leaveNudged && (
+            {leaveNudged && hasUnsavedRun && (
               <p className="res-leave-nudge" role="alert">{strings.results.saveFirstNudge}</p>
             )}
             <div className="res-actions">

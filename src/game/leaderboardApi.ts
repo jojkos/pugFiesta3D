@@ -36,19 +36,3 @@ export async function postScore(
     return null;
   }
 }
-
-export async function renameScore(
-  fetchFn: FetchFn,
-  input: { rowId: string; name: string },
-): Promise<boolean> {
-  try {
-    const res = await fetchFn('/api/rename-score', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}

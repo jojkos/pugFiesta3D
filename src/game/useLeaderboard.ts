@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getSupabase, type LeaderboardEntry } from '../lib/supabase';
-import { postScore, requestSessionToken, renameScore } from './leaderboardApi';
+import { postScore, requestSessionToken } from './leaderboardApi';
 
 const TABLE = 'leaderboard';
 
@@ -12,8 +12,6 @@ export type LeaderboardState = {
   /** Fetch a fresh single-use session token; call when a round starts. */
   startSession: () => Promise<void>;
   submit: (input: { name: string; score: number }) => Promise<LeaderboardEntry | null>;
-  /** Relabel an existing row's player_name. Gated until /api/rename-score ships. */
-  rename: (rowId: string, newName: string) => Promise<boolean>;
 };
 
 export function useLeaderboard(topN?: number, refreshKey = 0): LeaderboardState {
@@ -79,18 +77,9 @@ export function useLeaderboard(topN?: number, refreshKey = 0): LeaderboardState 
     [refresh, startSession],
   );
 
-  const rename = useCallback<LeaderboardState['rename']>(
-    async (rowId, newName) => {
-      const ok = await renameScore(fetch, { rowId, name: newName });
-      if (ok) await refresh();
-      return ok;
-    },
-    [refresh],
-  );
-
   useEffect(() => {
     void refresh();
   }, [refresh, refreshKey]);
 
-  return { entries, loading, error, refresh, startSession, submit, rename };
+  return { entries, loading, error, refresh, startSession, submit };
 }
