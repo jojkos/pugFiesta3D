@@ -500,18 +500,6 @@ body {
   flex-wrap: wrap;
 }
 
-.menu-identity {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--ink-soft);
-  font-family: var(--ui-font);
-}
-.menu-identity-name { font-weight: 800; }
-.menu-identity-best { color: var(--ink-mute); }
-
 .menu-credit {
   margin-left: auto;
   font-size: 10px;
@@ -1454,16 +1442,6 @@ body {
   animation: panelIn 320ms cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
-/* When the card is taller than the viewport, flex must take the height back
-   from SOMETHING. Pin every direct child at its natural height so the form,
-   stats, error/nudge messages and action buttons can never be crushed into one
-   another — only the leaderboard (.res-side, flex:1 1 auto below) is allowed to
-   shrink and scroll internally to absorb the difference. This is the real fix
-   for the game-over overlap: the input row was never the problem. */
-.res > * {
-  flex-shrink: 0;
-}
-
 .res-eye {
   margin: 0;
   font-size: 10px;
@@ -1660,9 +1638,6 @@ body {
 
 .res-submit-input {
   flex: 1;
-  /* Without this a flex item refuses to shrink below its content width, so the
-     input + button row overflows the card. */
-  min-width: 0;
   padding: 9px 14px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line-strong);
@@ -1690,13 +1665,24 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-family: var(--ui-font);
-  /* The input shrinks (min-width:0); the button keeps its label. */
-  flex-shrink: 0;
 }
 
 .res-submit-btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.res-submit-done {
+  margin: 0;
+  padding: 8px 14px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 12px;
+  color: #6a3d10;
+  background: linear-gradient(90deg, #ffe09b, #ffd86c);
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .res-submit-error {
@@ -1707,159 +1693,17 @@ body {
   font-size: 12px;
   color: #8a1f12;
   background: linear-gradient(90deg, #ffd5cf, #ffc1b8);
-  border-radius: 10px;
+  border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  /* Server/localized messages can be long — wrap instead of overflowing. */
-  overflow-wrap: anywhere;
 }
 
-/* One fixed-height slot the three game-over states render into, so the card
-   never resizes between states or across replays. */
-.res-status {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 64px;
-  justify-content: center;
-  /* Grid/flex item in column 1 — allow it to shrink to its track instead of
-     forcing the card wider. */
-  min-width: 0;
-}
-
-.res-submit.is-primary {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  min-height: 64px;
-  padding: 10px 12px;
-  background: var(--paper-2);
-  border: 1px solid var(--line-strong);
-  border-radius: 14px;
-  /* As a grid item its default min-width:auto would refuse to shrink and push
-     the input+button row past the card edge. */
-  min-width: 0;
-}
-.res-submit-eye {
-  margin: 0;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: var(--eyebrow-tracking);
+.res-leave-nudge {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
   color: var(--accent);
-}
-.res-submit-row {
-  /* "Fill + fixed" row: the input takes the remaining space and may shrink all
-     the way to zero (minmax(0, 1fr)); the button keeps its intrinsic width
-     (auto). A grid track with a 0 minimum can never exceed its container, so
-     this holds in EVERY layout context — the single-column flex card AND the
-     two-column grid card (@container min-width:460px), at any width. The old
-     flex version needed a fragile min-width:0 ancestor chain plus flex-wrap and
-     still overflowed inside the grid track; grid makes overflow structurally
-     impossible. */
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
-  align-items: center;
-}
-.res-submit-btn.is-primary {
-  background: linear-gradient(135deg, var(--warm-1), var(--warm-2));
-  color: #261208;
-}
-
-/* Quiet session-best confirmation — NOT the gold record pill. */
-.res-saved,
-.res-saving {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--ink-soft);
-}
-.res-saved-check {
-  display: inline-grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 900;
-  animation: savedCheckPop 180ms cubic-bezier(0.34, 1.4, 0.64, 1) 200ms both;
-}
-.res-saved-name {
-  margin: 0;
-  font-size: 11px;
-  color: var(--ink-mute);
-}
-.res-best-line {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--ink-soft);
-}
-.res-save-anyway {
-  align-self: flex-start;
-  border: 1px solid var(--line-strong);
-  background: transparent;
-  padding: 8px 14px;
-  border-radius: var(--radius-pill);
-  font: inherit;
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-  font-family: var(--ui-font);
-}
-.res-save-anyway:hover { background: rgba(36, 16, 11, 0.06); }
-.res-save-anyway:disabled { opacity: 0.6; cursor: default; }
-
-.name-edit {
-  align-self: flex-start;
-  border: 0;
-  background: none;
-  padding: 2px 0;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ink-mute);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.name-edit:hover { color: var(--accent); }
-.name-edit:focus-visible {
-  color: var(--accent);
-  outline: 2px solid var(--warm-1);
-  outline-offset: 2px;
-  border-radius: 3px;
-}
-.name-edit-form {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  /* Lives inside the wrapping .menu-identity flex row — must be allowed to
-     shrink/wrap so the input + button never overflow the card. */
-  min-width: 0;
-  max-width: 100%;
-}
-
-@keyframes savedCheckPop {
-  from { transform: scale(0.6); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-/* The leaderboard row pulse is the "you just landed here" signal — only fires
-   on a fresh save (the .is-fresh modifier), never on a plain results view.
-   Colour matches the row's own maroon so it reads as the row breathing. */
-.res-mini.you.is-fresh {
-  animation: youPulse 600ms ease 320ms 1;
-}
-@keyframes youPulse {
-  0% { box-shadow: 0 0 0 0 rgba(110, 31, 58, 0); }
-  40% { box-shadow: 0 0 0 4px rgba(110, 31, 58, 0.5); }
-  100% { box-shadow: 0 0 0 0 rgba(110, 31, 58, 0); }
+  text-align: center;
 }
 
 .res-actions {
@@ -1936,7 +1780,7 @@ body {
     grid-row: 1 / 5;
   }
   .res-submit,
-  .res-status {
+  .res-submit-done {
     grid-column: 1 / 2;
   }
   .res-actions {
@@ -2336,20 +2180,4 @@ body {
 .age-gate-btn-no:hover {
   transform: translateY(-2px) scale(1.02) !important;
   background: var(--paper-3) !important;
-}
-
-.res-leave-nudge {
-  margin: 4px 0 0;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--accent);
-  text-align: center;
-  /* Span both columns and sit above the sticky actions row in the grid layout
-     so it can't hide beneath them on a short viewport. */
-  grid-column: 1 / -1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .res-saved-check { animation: none; }
-  .res-mini.you.is-fresh { animation: none; }
 }

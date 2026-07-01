@@ -1,6 +1,6 @@
 // Must match the DB CHECK constraint on leaderboard.player_name
-// (char_length(player_name) <= 24). Keep in sync if that constraint changes.
-export const MAX_NAME_LEN = 24;
+// (char_length(player_name) <= 15). Keep in sync if that constraint changes.
+export const MAX_NAME_LEN = 15;
 export const ANONYMOUS_NAME = 'Anonymouse';
 
 /**
