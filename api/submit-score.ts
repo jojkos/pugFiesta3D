@@ -87,20 +87,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // 5. Dedup: same name + score already on the board → return the earliest.
-  const { data: existing } = await supabase
-    .from(TABLE)
-    .select('id, player_name, score, created_at')
-    .eq('player_name', name)
-    .eq('score', score)
-    .order('created_at', { ascending: true })
-    .limit(1);
-  if (existing && existing.length > 0) {
-    res.status(200).json({ entry: existing[0] });
-    return;
-  }
-
-  // 6. Insert.
+  // 5. Insert. Always a fresh row: the single-use session token already
+  // prevents double-submits, and the client highlights the returned row as
+  // "you" — returning someone else's earlier (name, score) match here would
+  // celebrate a stranger's entry.
   const { data, error } = await supabase
     .from(TABLE)
     .insert({ player_name: name, score })

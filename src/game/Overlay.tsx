@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import type { LeaderboardEntry } from '../lib/supabase';
@@ -6,8 +6,7 @@ import type { GameMode } from './types';
 import type { VoiceCharacter } from './useFunnySpeech';
 import { Leaderboard, MiniLeaderboard } from './Leaderboard';
 import { SUPPORTED_LANGS, type Lang, type Strings } from './i18n';
-import { ROUND_DURATION } from './config';
-import { MAX_NAME_LEN, sanitizeName } from './leaderboardUtils';
+import { celebrationTier, prospectiveRank, sanitizeName } from './leaderboardUtils';
 
 const LANG_FLAGS: Record<Lang, string> = {
   cs: '🇨🇿',
@@ -81,6 +80,36 @@ function teamBadgeBackground(team: Team): string {
 }
 
 const IOS_NUDGE_DISMISSED_KEY = 'pug-banger-fiesta-ios-nudge-dismissed';
+
+// Rolls the displayed score 0 → target when `active` flips on (game-over
+// reveal). Skipped for prefers-reduced-motion users, who get the final value
+// immediately.
+function useCountUp(target: number, active: boolean): number {
+  const [value, setValue] = useState(target);
+  useEffect(() => {
+    if (!active || target <= 0 || typeof window === 'undefined') {
+      setValue(target);
+      return;
+    }
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setValue(target);
+      return;
+    }
+    const DURATION_MS = 800;
+    const start = performance.now();
+    setValue(0);
+    let frame = 0;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / DURATION_MS);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(target * eased));
+      if (progress < 1) frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [target, active]);
+  return value;
+}
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -395,8 +424,7 @@ export function Overlay({
     }
   }, [mode, submitState]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleSubmit = async () => {
     // Allow a retry from the 'error' state; only block while a request is
     // already in flight.
     if (submitState === 'submitting') return;
@@ -415,13 +443,18 @@ export function Overlay({
     setSubmitState(ok ? 'done' : 'error');
   };
 
+  const ghostInputRef = useRef<HTMLInputElement | null>(null);
+
   // A positive run that hasn't been saved yet. Leaving (Again or Menu) would
   // lose it, so the FIRST attempt to leave shows a one-shot nudge instead of
-  // acting; a second click proceeds — never a hard trap.
+  // acting; a second click proceeds — never a hard trap. Saving stays
+  // optional; the nudge just points at the ghost row.
   const hasUnsavedRun = score > 0 && submitState !== 'done';
   const guardLeave = (proceed: () => void) => {
     if (hasUnsavedRun && !leaveNudged) {
       setLeaveNudged(true);
+      ghostInputRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      ghostInputRef.current?.focus({ preventScroll: true });
       return;
     }
     proceed();
@@ -439,11 +472,19 @@ export function Overlay({
     voiceCharacters[0]?.label ??
     '';
 
-  // Only celebrate when the player has actually beaten the top score on the
-  // leaderboard (or set the first one when the board is empty).
   const leaderboardTop = leaderboardEntries[0]?.score ?? 0;
-  const isNewBest =
-    mode === 'gameOver' && score > 0 && score > leaderboardTop;
+
+  // Where this run sits on the board: before saving it's the projected slot;
+  // after saving it's the real position of the freshly inserted row.
+  const savedIndex = highlightedEntryId
+    ? leaderboardEntries.findIndex((entry) => entry.id === highlightedEntryId)
+    : -1;
+  const runRank =
+    submitState === 'done' && savedIndex >= 0
+      ? savedIndex + 1
+      : prospectiveRank(leaderboardEntries, score);
+  const tier = score > 0 ? celebrationTier(runRank) : 'none';
+  const animatedScore = useCountUp(score, mode === 'gameOver');
 
   return (
     <>
@@ -1000,14 +1041,25 @@ export function Overlay({
       {mode === 'gameOver' && (
         <div className="modal-backdrop is-gameover">
           <section className="res">
+            {tier === 'first' && (
+              <div className="res-confetti" aria-hidden="true">
+                {Array.from({ length: 14 }, (_, i) => (
+                  <i key={i} />
+                ))}
+              </div>
+            )}
             <div className="res-head">
               <p className="res-eye">{strings.results.eyebrow}</p>
               <div className="res-score">
-                <span className="res-score-num">{score}</span>
+                <span className="res-score-num">{animatedScore}</span>
                 <span className="res-score-suf">{strings.results.suffix}</span>
               </div>
-              {isNewBest ? (
+              {tier === 'first' ? (
                 <div className="res-msg is-best">★ {strings.results.newBest}</div>
+              ) : tier === 'top3' ? (
+                <div className="res-msg is-best is-top3">🏅 {strings.results.top3}</div>
+              ) : tier === 'top10' ? (
+                <p className="res-msg is-top10">{strings.results.top10}</p>
               ) : (
                 <p className="res-msg">{strings.results.tryAgain}</p>
               )}
@@ -1019,11 +1071,8 @@ export function Overlay({
                 <strong>{Math.max(score, leaderboardTop)}</strong>
               </div>
               <div className="res-stat">
-                <span>{strings.results.pace}</span>
-                <strong>
-                  {(score / ROUND_DURATION).toFixed(2)}
-                  {strings.results.paceUnit}
-                </strong>
+                <span>{strings.results.rank}</span>
+                <strong>{score > 0 ? `#${runRank}` : '—'}</strong>
               </div>
             </div>
 
@@ -1039,36 +1088,29 @@ export function Overlay({
                 strings={strings}
                 lang={lang}
                 limit={leaderboardEntries.length}
+                ghost={
+                  hasUnsavedRun
+                    ? {
+                        rank: runRank,
+                        score,
+                        name: pendingName,
+                        onNameChange: setPendingName,
+                        onSubmit: () => void handleSubmit(),
+                        state:
+                          submitState === 'submitting'
+                            ? 'submitting'
+                            : submitState === 'error'
+                              ? 'error'
+                              : 'idle',
+                      }
+                    : undefined
+                }
+                ghostInputRef={ghostInputRef}
               />
             </aside>
 
-            {score > 0 && submitState !== 'done' && (
-              <form className="res-submit" onSubmit={handleSubmit}>
-                <input
-                  className="res-submit-input"
-                  maxLength={MAX_NAME_LEN}
-                  value={pendingName}
-                  onChange={(event) => setPendingName(event.target.value)}
-                  placeholder={strings.leaderboard.namePlaceholder}
-                  disabled={submitState === 'submitting'}
-                />
-                <button
-                  type="submit"
-                  className="res-submit-btn"
-                  disabled={submitState === 'submitting' || pendingName.trim() === ''}
-                >
-                  {submitState === 'submitting'
-                    ? strings.leaderboard.submitting
-                    : submitState === 'error'
-                      ? strings.leaderboard.retry
-                      : strings.leaderboard.submit}
-                </button>
-              </form>
-            )}
-            {score > 0 && submitState === 'error' && (
-              <p className="res-submit-error" role="alert">
-                {strings.leaderboard.submitFailed}
-              </p>
+            {submitState === 'done' && (
+              <p className="res-submit-done">✓ {strings.leaderboard.submitted}</p>
             )}
 
             {leaveNudged && hasUnsavedRun && (

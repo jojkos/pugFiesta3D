@@ -1425,6 +1425,7 @@ body {
 
 .res {
   container-type: inline-size;
+  position: relative;
   /* Landscape phones + desktop both want a wider modal so the leaderboard
      sidebar fits. Stacks vertically below the breakpoint at the bottom. */
   width: min(820px, 100%);
@@ -1630,46 +1631,86 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.res-submit {
-  display: flex;
-  gap: 6px;
-  align-items: center;
+/* Ghost row — the player's unsaved run parked at its would-be rank inside
+   the mini leaderboard. Dashed + gently pulsing to read as "not saved yet";
+   saving is optional, this is an invitation, not a gate. */
+.res-ghost {
+  border: 1.5px dashed var(--accent);
+  background: rgba(222, 90, 122, 0.07);
+  padding: 6px 8px;
+  animation: ghostPulse 1.8s ease-in-out infinite;
 }
 
-.res-submit-input {
-  flex: 1;
-  padding: 9px 14px;
-  border-radius: var(--radius-pill);
+.res-ghost .res-mini-rank {
+  color: var(--accent);
+}
+
+.res-ghost-input {
+  min-width: 0;
+  width: 100%;
+  padding: 5px 10px;
+  border-radius: 8px;
   border: 1px solid var(--line-strong);
   background: #fff;
   font: inherit;
-  font-size: 12px;
+  font-size: 11.5px;
+  font-weight: 600;
   font-family: var(--ui-font);
 }
 
-.res-submit-input:focus {
+.res-ghost-input:focus {
   outline: 2px solid var(--warm-1);
   outline-offset: 1px;
 }
 
-.res-submit-btn {
+.res-ghost .res-mini-score {
+  color: var(--accent-deep);
+}
+
+.res-ghost-btn {
+  grid-column: 1 / -1;
   border: 0;
-  padding: 9px 14px;
+  margin-top: 2px;
+  padding: 7px 12px;
   border-radius: var(--radius-pill);
-  background: var(--ink);
-  color: var(--paper);
+  background: linear-gradient(135deg, var(--warm-1), var(--warm-2));
+  color: #261208;
   font: inherit;
-  font-weight: 700;
-  font-size: 11.5px;
+  font-weight: 800;
+  font-size: 11px;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-family: var(--ui-font);
 }
 
-.res-submit-btn:disabled {
+.res-ghost-btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.res-ghost-error {
+  grid-column: 1 / -1;
+  color: #8a1f12;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-align: center;
+}
+
+@keyframes ghostPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(222, 90, 122, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(222, 90, 122, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .res-ghost {
+    animation: none;
+  }
 }
 
 .res-submit-done {
@@ -1685,17 +1726,62 @@ body {
   letter-spacing: 0.06em;
 }
 
-.res-submit-error {
-  margin: 6px 0 0;
-  padding: 8px 14px;
-  text-align: center;
-  font-weight: 800;
-  font-size: 12px;
-  color: #8a1f12;
-  background: linear-gradient(90deg, #ffd5cf, #ffc1b8);
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+/* Confetti burst inside the results card for a #1 run. Pure CSS so it works
+   above the modal backdrop (the 3D confetti canvas sits behind it). */
+.res-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+  border-radius: inherit;
+}
+
+.res-confetti i {
+  position: absolute;
+  top: -14px;
+  width: 8px;
+  height: 13px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confettiFall 2s cubic-bezier(0.25, 0.4, 0.6, 1) forwards;
+}
+
+.res-confetti i:nth-child(4n + 1) { background: var(--warm-1); }
+.res-confetti i:nth-child(4n + 2) { background: var(--warm-2); }
+.res-confetti i:nth-child(4n + 3) { background: var(--accent); }
+.res-confetti i:nth-child(4n + 4) { background: #ffd86c; }
+
+.res-confetti i:nth-child(1)  { left: 6%;  animation-delay: 0ms; }
+.res-confetti i:nth-child(2)  { left: 13%; animation-delay: 240ms; }
+.res-confetti i:nth-child(3)  { left: 21%; animation-delay: 90ms; }
+.res-confetti i:nth-child(4)  { left: 28%; animation-delay: 330ms; }
+.res-confetti i:nth-child(5)  { left: 36%; animation-delay: 160ms; }
+.res-confetti i:nth-child(6)  { left: 43%; animation-delay: 40ms; }
+.res-confetti i:nth-child(7)  { left: 51%; animation-delay: 280ms; }
+.res-confetti i:nth-child(8)  { left: 58%; animation-delay: 120ms; }
+.res-confetti i:nth-child(9)  { left: 66%; animation-delay: 360ms; }
+.res-confetti i:nth-child(10) { left: 73%; animation-delay: 200ms; }
+.res-confetti i:nth-child(11) { left: 81%; animation-delay: 60ms; }
+.res-confetti i:nth-child(12) { left: 88%; animation-delay: 300ms; }
+.res-confetti i:nth-child(13) { left: 94%; animation-delay: 140ms; }
+.res-confetti i:nth-child(14) { left: 47%; animation-delay: 420ms; }
+
+@keyframes confettiFall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(260px) rotate(320deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .res-confetti {
+    display: none;
+  }
 }
 
 .res-leave-nudge {
@@ -1779,9 +1865,12 @@ body {
     grid-column: 2 / 3;
     grid-row: 1 / 5;
   }
-  .res-submit,
   .res-submit-done {
     grid-column: 1 / 2;
+    align-self: start;
+  }
+  .res-leave-nudge {
+    grid-column: 1 / -1;
   }
   .res-actions {
     grid-column: 1 / -1;

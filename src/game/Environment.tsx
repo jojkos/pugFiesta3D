@@ -141,14 +141,21 @@ function PitchLines() {
 function CenterLogo() {
   const texture = useTexture('/assets/images/logo.png');
   const planeSize = 4.5;
+  // Lit material + receiveShadow: an unlit basic material would paint over
+  // the shadowed grass beneath, making the pug's shadow vanish while it
+  // crosses the logo.
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, LINE_Y - 0.003, 0]}>
+    <mesh
+      receiveShadow
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, LINE_Y - 0.003, 0]}
+    >
       <planeGeometry args={[planeSize, planeSize]} />
-      <meshBasicMaterial
+      <meshStandardMaterial
         map={texture}
         transparent
         depthWrite={false}
-        toneMapped={false}
+        roughness={1}
       />
     </mesh>
   );
