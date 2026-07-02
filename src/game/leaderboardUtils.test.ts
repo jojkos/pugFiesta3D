@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   ANONYMOUS_NAME,
   MAX_NAME_LEN,
+  celebrationTier,
+  prospectiveRank,
   sanitizeName,
 } from './leaderboardUtils';
 
@@ -68,5 +70,52 @@ describe('sanitizeName', () => {
     // de-dup logic uses exact equality, so this is intentional behavior.
     const result = sanitizeName('  Joe    Doe  ');
     expect(result).toBe('Joe    Doe');
+  });
+});
+
+const board = (...scores: number[]) => scores.map((score) => ({ score }));
+
+describe('prospectiveRank', () => {
+  it('ranks 1 on an empty board', () => {
+    expect(prospectiveRank([], 5)).toBe(1);
+  });
+
+  it('ranks 1 when beating every existing score', () => {
+    expect(prospectiveRank(board(20, 15, 10), 21)).toBe(1);
+  });
+
+  it('ranks below an existing equal score (earlier save wins ties)', () => {
+    // Server orders score desc, created_at asc — the new run is always the
+    // latest, so it slots under the tied incumbent.
+    expect(prospectiveRank(board(20, 15, 10), 15)).toBe(3);
+  });
+
+  it('ranks last+1 when below every existing score', () => {
+    expect(prospectiveRank(board(20, 15, 10), 3)).toBe(4);
+  });
+
+  it('slots between scores', () => {
+    expect(prospectiveRank(board(20, 15, 10), 17)).toBe(2);
+  });
+});
+
+describe('celebrationTier', () => {
+  it('rank 1 → first', () => {
+    expect(celebrationTier(1)).toBe('first');
+  });
+
+  it('ranks 2-3 → top3', () => {
+    expect(celebrationTier(2)).toBe('top3');
+    expect(celebrationTier(3)).toBe('top3');
+  });
+
+  it('ranks 4-10 → top10', () => {
+    expect(celebrationTier(4)).toBe('top10');
+    expect(celebrationTier(10)).toBe('top10');
+  });
+
+  it('ranks 11+ → none', () => {
+    expect(celebrationTier(11)).toBe('none');
+    expect(celebrationTier(99)).toBe('none');
   });
 });
