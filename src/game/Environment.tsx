@@ -141,21 +141,27 @@ function PitchLines() {
 function CenterLogo() {
   const texture = useTexture('/assets/images/logo.png');
   const planeSize = 4.5;
-  // Lit material + receiveShadow: an unlit basic material would paint over
-  // the shadowed grass beneath, making the pug's shadow vanish while it
-  // crosses the logo.
+  // The pug's shadow lands on the pitch (y=0); this logo sits just above it.
+  // To make that shadow render ON TOP of the logo (not hidden beneath it) and
+  // do so reliably, the plane must be a lit, opaque, depth-writing surface —
+  // same as the grass. `alphaTest` (not `transparent`) keeps the PNG's clear
+  // border cut out while staying in the opaque pass, so shadow-receiving is
+  // stable instead of flickering with the pug's position. `polygonOffset`
+  // stops it z-fighting the pitch it hovers just above.
   return (
     <mesh
       receiveShadow
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, LINE_Y - 0.003, 0]}
+      position={[0, 0.004, 0]}
     >
       <planeGeometry args={[planeSize, planeSize]} />
       <meshStandardMaterial
         map={texture}
-        transparent
-        depthWrite={false}
+        alphaTest={0.5}
         roughness={1}
+        polygonOffset
+        polygonOffsetFactor={-2}
+        polygonOffsetUnits={-2}
       />
     </mesh>
   );
