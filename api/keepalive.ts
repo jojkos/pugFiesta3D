@@ -11,7 +11,10 @@ import { getAdminSupabase } from './_lib/supabaseAdmin.js';
  * invocations with CRON_SECRET, which is all that guards the route.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Fail closed: if the secret is missing the template literal would compare
+  // against the string "Bearer undefined", which a caller can simply send.
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
     res.status(401).end();
     return;
   }
